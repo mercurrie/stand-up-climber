@@ -1,0 +1,25 @@
+{
+  "name": "stand-up-climber",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A tiny multiplayer vertical platformer that decides who hosts next week's stand-up.",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "client",
+    "server"
+  ],
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c magenta,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm run dev --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "build": "npm run build --workspace client",
+    "start": "npm run start --workspace server"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

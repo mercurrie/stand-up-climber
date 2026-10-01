@@ -1,0 +1,10 @@
+{
+  "name": "@stand-up-climber/shared",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Protocol and timing constants shared by the client and server.",
+  "type": "module",
+  "exports": {
+    ".": "./src/protocol.js"
+  }
+}
