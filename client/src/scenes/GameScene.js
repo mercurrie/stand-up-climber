@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { Level } from '../level/Level.js';
 import { LEVEL_1 } from '../level/level1.js';
 import { LocalPlayer } from '../entities/LocalPlayer.js';
+import { RemotePlayer } from '../entities/RemotePlayer.js';
 import { ObstacleField } from '../entities/ObstacleField.js';
 import { createObstacleSchedule } from '../level/obstacleSchedule.js';
 import { Effects } from '../effects/Effects.js';
@@ -48,9 +49,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    const playerColor = PLAYER_COLORS[0];
     this.isSolo = !this.round;
-    this.round ??= new SoloRound({ player: { id: 'local', name: 'You', color: playerColor } });
+    this.round ??= new SoloRound({ player: { id: 'local', name: 'You', color: PLAYER_COLORS[0] } });
+    const playerColor = this.round.localPlayer.color;
 
     this.level = new Level(LEVEL_1);
     const { width, worldHeight } = this.level;
@@ -87,13 +88,14 @@ export class GameScene extends Phaser.Scene {
       color: COLORS.text,
     });
 
+    // Other players: sprites that follow server snapshots (NetworkRound only).
+    this.remotePlayers = new Map();
+    this.round.on('snapshot', this.onSnapshot, this);
+
     this.phase = null;
     this.round.on('first-finish', this.onFirstFinish, this);
     this.round.once('ended', this.onRoundEnded, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.round.off('first-finish', this.onFirstFinish, this);
-      this.round.off('ended', this.onRoundEnded, this);
-    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.round.destroy());
 
     if (this.isSolo) {
       // Practice only: restart with a fresh seed (new obstacle pattern).
@@ -110,13 +112,39 @@ export class GameScene extends Phaser.Scene {
     this.obstacles.update(now - this.round.startAt);
 
     // Each client only checks hits against its own player. Remote players
-    // (Phase 5) report their own hits via their progress updates.
+    // detect their own hits and we just see their progress/position change.
     if (!this.progress.finished && this.player.canBeHit && this.obstacles.findHit(this.player.bounds)) {
       this.onPlayerHit();
     }
 
+    this.remotePlayers.forEach((remote) => remote.update(delta));
+    this.round.reportPosition({
+      x: Math.round(this.player.body.center.x),
+      y: Math.round(this.player.body.bottom),
+      flip: this.player.sprite.flipX,
+      hidden: !this.player.sprite.visible,
+    }, now);
+
     this.round.update(now);
     this.hud.update({ now, phase, round: this.round, ...this.progress });
+  }
+
+  onSnapshot({ players }) {
+    const seen = new Set();
+    for (const state of players) {
+      const info = this.round.roster.get(state.id);
+      if (!info) continue;
+      seen.add(state.id);
+      if (!this.remotePlayers.has(state.id)) this.remotePlayers.set(state.id, new RemotePlayer(this, info));
+      this.remotePlayers.get(state.id).setTarget(state);
+    }
+    // Anyone missing from the snapshot has left.
+    for (const [id, remote] of this.remotePlayers) {
+      if (!seen.has(id)) {
+        remote.destroy();
+        this.remotePlayers.delete(id);
+      }
+    }
   }
 
   onPhaseChange(phase) {
@@ -135,7 +163,7 @@ export class GameScene extends Phaser.Scene {
     const message = this.progress.finished ? 'FINISHED!' : "TIME'S UP!";
     this.hud.announce(message, { holdMs: null, color: this.progress.finished ? COLORS.good : COLORS.bad });
     this.time.delayedCall(RESULTS_DELAY_MS, () => {
-      this.scene.start('Results', { rankings, localId: this.round.localId });
+      this.scene.start('Results', { rankings, localId: this.round.localId, solo: this.isSolo });
     });
   }
 

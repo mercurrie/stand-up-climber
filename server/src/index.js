@@ -18,7 +18,8 @@ const httpServer = http.createServer((req, res) => {
   res.end('Stand-Up Climber server. Connect via WebSocket.');
 });
 
-const wss = new WebSocketServer({ server: httpServer });
+// Our messages are tiny; cap the size so a bad client can't send huge payloads.
+const wss = new WebSocketServer({ server: httpServer, maxPayload: 16 * 1024 });
 const gameServer = new GameServer(wss);
 
 httpServer.listen(PORT, () => {

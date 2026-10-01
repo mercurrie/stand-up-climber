@@ -2,22 +2,23 @@ import Phaser from 'phaser';
 import { RoundState, Rules } from '@stand-up-climber/shared';
 
 /**
- * A round played offline, with the rules running locally.
+ * A practice round played offline, with the rules running locally.
  *
- * GameScene only talks to a "round" through this small interface:
- *   startAt, endsAt, phase(now), standings, localId
+ * GameScene only talks to a "round" through this small interface, which
+ * NetworkRound implements too:
+ *   startAt, endsAt, phase(now), standings, localId, localPlayer
  *   reportProgress({ current, best, finished })
- *   update(now)
+ *   reportPosition({ x, y, flip, hidden }, now)
+ *   update(now), destroy()
  *   events: 'first-finish' ({ name, isLocal, endsAt }), 'ended' ({ rankings })
  *
- * Phase 5 adds a network-backed round with the same interface, where the
- * server runs RoundState and these events come from server messages.
- * All times here are local Date.now() milliseconds.
+ * All times are local Date.now() milliseconds.
  */
 export class SoloRound extends Phaser.Events.EventEmitter {
   constructor({ player, now = Date.now() }) {
     super();
     this.localId = player.id;
+    this.localPlayer = player;
     this.state = new RoundState({ startAt: now + Rules.COUNTDOWN_MS, players: [player] });
     this.endedEmitted = false;
   }
@@ -45,10 +46,18 @@ export class SoloRound extends Phaser.Events.EventEmitter {
     }
   }
 
+  reportPosition() {
+    // Nobody to tell.
+  }
+
   update(now) {
     if (!this.endedEmitted && this.phase(now) === 'ended') {
       this.endedEmitted = true;
       this.emit('ended', { rankings: this.state.rankings() });
     }
+  }
+
+  destroy() {
+    this.removeAllListeners();
   }
 }

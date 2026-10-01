@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { HIT, PLAYER } from '../config/gameplay.js';
+import { PLAYER_TEXTURE as TEXTURE_KEY, ensurePlayerTexture } from './playerTexture.js';
 
-const TEXTURE_KEY = 'player';
 const FRAME_MS = 1000 / 60;
 
 /**
@@ -12,8 +12,7 @@ const FRAME_MS = 1000 / 60;
  *  - `sprite`: what you see. Follows the hitbox and can squash/stretch freely
  *    without changing the physics body's size.
  *
- * Remote players (Phase 5) will reuse the same look via the 'player' texture,
- * but without a hitbox: they're just interpolated sprites.
+ * Remote players (RemotePlayer) share the look but have no hitbox.
  */
 export class LocalPlayer {
   constructor(scene, x, y, color) {
@@ -33,12 +32,15 @@ export class LocalPlayer {
     this.invulnerableUntil = 0;
     this.frozen = false;
 
+    // enableCapture=false: Phaser's key captures are global and outlive this
+    // scene, which would stop you typing "a"/"d" into the menu's name field.
     const kb = scene.input.keyboard;
+    const { LEFT, RIGHT, A, D } = Phaser.Input.Keyboard.KeyCodes;
     this.keys = {
-      left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-      right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-      a: kb.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      d: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      left: kb.addKey(LEFT, false),
+      right: kb.addKey(RIGHT, false),
+      a: kb.addKey(A, false),
+      d: kb.addKey(D, false),
     };
 
     // Sync the sprite after physics has stepped (Arcade runs in 'update',
@@ -153,20 +155,4 @@ export class LocalPlayer {
     this.hitbox.destroy();
     this.sprite.destroy();
   }
-}
-
-/** A rounded white square with two little eyes. Tinted per player. */
-function ensurePlayerTexture(scene) {
-  if (scene.textures.exists(TEXTURE_KEY)) return;
-  const s = PLAYER.SIZE;
-  const g = scene.make.graphics({ add: false });
-  g.fillStyle(0xffffff, 1);
-  g.fillRoundedRect(0, 0, s, s, 9);
-  // Pupils sit right of centre so the character "looks" where it's going
-  // (the sprite is flipped when moving left).
-  g.fillStyle(0x1d1b2f, 1);
-  g.fillCircle(s * 0.56, s * 0.4, 3.2);
-  g.fillCircle(s * 0.8, s * 0.4, 3.2);
-  g.generateTexture(TEXTURE_KEY, s, s);
-  g.destroy();
 }

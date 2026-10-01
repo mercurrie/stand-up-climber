@@ -1,21 +1,26 @@
 import Phaser from 'phaser';
+import { Rules } from '@stand-up-climber/shared';
 import { COLORS, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT, PLAYER_COLORS } from '../config/display.js';
 import { MEDALS, formatPercent, hostingLine } from '../ui/format.js';
+import { Button } from '../ui/Button.js';
+import { PLAYER_TEXTURE, ensurePlayerTexture } from '../entities/playerTexture.js';
 
 const ROW_HEIGHT = 34;
 const CONFETTI_KEY = 'confetti';
+const SMALL_BUTTON = { width: 140, height: 40, fontSize: 16, variant: 'secondary' };
 
 /**
  * Final standings and the all-important announcement of next week's host.
  *
- * data: { rankings: [{ id, name, color, best, finished }], localId }
+ * data: { rankings: [{ id, name, color, best, finished }], localId, solo }
  */
 export class ResultsScene extends Phaser.Scene {
   constructor() {
     super('Results');
   }
 
-  create({ rankings, localId }) {
+  create({ rankings, localId, solo }) {
+    ensurePlayerTexture(this);
     const cx = GAME_WIDTH / 2;
     const winner = rankings[0];
     const text = (x, y, value, size, color = COLORS.text, extra = {}) => this.add.text(x, y, value, {
@@ -44,9 +49,9 @@ export class ResultsScene extends Phaser.Scene {
 
     // The winner: their character bouncing just above the announcement, which
     // sits at a fixed spot so it never collides with a full 10-player list.
-    const announceY = GAME_HEIGHT - 240;
+    const announceY = GAME_HEIGHT - 265;
     if (winner) {
-      const hero = this.add.image(cx, announceY - 12, 'player').setTint(winner.color).setScale(1.5).setOrigin(0.5, 1);
+      const hero = this.add.image(cx, announceY - 12, PLAYER_TEXTURE).setTint(winner.color).setScale(1.5).setOrigin(0.5, 1);
       this.tweens.add({ targets: hero, y: hero.y - 30, duration: 380, ease: 'Quad.easeOut', yoyo: true, repeat: -1 });
 
       const announcement = text(cx, announceY, hostingLine(winner.name), 34, COLORS.accent, {
@@ -60,28 +65,37 @@ export class ResultsScene extends Phaser.Scene {
       this.tweens.add({ targets: announcement, angle: { from: -3, to: 3 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
 
-    this.createPlayAgainButton(cx, GAME_HEIGHT - 80);
+    if (solo) this.createSoloButtons(cx);
+    else this.createRoomButtons(cx);
   }
 
-  createPlayAgainButton(x, y) {
-    const button = this.add.container(x, y);
-    const bg = this.add.graphics();
-    const draw = (fill) => {
-      bg.clear();
-      bg.fillStyle(fill, 1);
-      bg.fillRoundedRect(-110, -30, 220, 60, 16);
-    };
-    draw(0x4cc9f0);
-    const label = this.add.text(0, 0, 'PLAY AGAIN', {
-      fontFamily: FONT_FAMILY, fontSize: '26px', fontStyle: 'bold', color: '#1d1b2f',
+  createSoloButtons(cx) {
+    const playAgain = () => this.scene.start('Game');
+    new Button(this, cx, GAME_HEIGHT - 100, 'PLAY AGAIN', playAgain);
+    new Button(this, cx, GAME_HEIGHT - 38, 'Menu', () => this.scene.start('Menu'), SMALL_BUTTON);
+    this.input.keyboard.once('keydown-ENTER', playAgain);
+  }
+
+  // Multiplayer: only the host can restart the room (ROUND_START then moves
+  // everyone to the game, see main.js). The host can change while we're here,
+  // so re-render on room updates.
+  createRoomButtons(cx) {
+    const session = this.registry.get('session');
+    const playAgain = new Button(this, cx, GAME_HEIGHT - 100, 'PLAY AGAIN', () => session.startRound());
+    const waiting = this.add.text(cx, GAME_HEIGHT - 100, 'Waiting for the host to\nstart the next round…', {
+      fontFamily: FONT_FAMILY, fontSize: '18px', fontStyle: 'bold', color: COLORS.textMuted, align: 'center',
     }).setOrigin(0.5);
-    button.add([bg, label]);
-    button.setSize(220, 60).setInteractive({ useHandCursor: true });
-    button.on('pointerover', () => draw(0x7ad9f5));
-    button.on('pointerout', () => draw(0x4cc9f0));
-    // Solo for now. In Phase 5 only the host can restart the room.
-    button.on('pointerup', () => this.scene.start('Game'));
-    this.input.keyboard.once('keydown-ENTER', () => this.scene.start('Game'));
+    new Button(this, cx, GAME_HEIGHT - 38, 'Lobby', () => this.scene.start('Lobby'), SMALL_BUTTON);
+
+    const render = () => {
+      const canStart = session.isHost && (session.room?.players.length ?? 0) >= Rules.MIN_PLAYERS;
+      playAgain.setVisible(session.isHost).setEnabled(canStart);
+      waiting.setVisible(!session.isHost);
+    };
+    render();
+    session.on('room', render);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => session.off('room', render));
+    this.input.keyboard.on('keydown-ENTER', () => playAgain.visible && playAgain.enabled && session.startRound());
   }
 
   startConfetti() {

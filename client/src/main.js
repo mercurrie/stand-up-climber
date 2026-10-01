@@ -1,7 +1,13 @@
 import Phaser from 'phaser';
-import { BootScene } from './scenes/BootScene.js';
+import { MenuScene } from './scenes/MenuScene.js';
+import { LobbyScene } from './scenes/LobbyScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { ResultsScene } from './scenes/ResultsScene.js';
+import { NetworkClient } from './networking/NetworkClient.js';
+import { RoomSession } from './networking/RoomSession.js';
+import { NetworkRound } from './round/NetworkRound.js';
+import { showToast } from './ui/toast.js';
+import { SERVER_URL } from './config/network.js';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from './config/display.js';
 import { GRAVITY } from './config/gameplay.js';
 
@@ -14,6 +20,8 @@ const game = new Phaser.Game({
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: COLORS.background,
+  // Lets MenuScene use real HTML inputs, scaled along with the canvas.
+  dom: { createContainer: true },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -22,7 +30,36 @@ const game = new Phaser.Game({
     default: 'arcade',
     arcade: { gravity: { y: GRAVITY }, debug },
   },
-  scene: [BootScene, GameScene, ResultsScene],
+  scene: [MenuScene, LobbyScene, GameScene, ResultsScene],
+});
+
+// One connection and room session for the whole app, shared via the registry.
+const net = new NetworkClient(SERVER_URL);
+const session = new RoomSession(net);
+game.registry.set('session', session);
+net.connect();
+
+// Scene changes driven by the server live here, in one place, rather than
+// in every scene that might be showing when they happen.
+function switchTo(key, data) {
+  game.scene.getScenes(true).forEach((scene) => scene.scene.stop());
+  game.scene.start(key, data);
+}
+
+session.on('round-start', (msg) => {
+  // Late joiners are in the room but not in this round: they stay in the lobby.
+  if (!msg.playerIds.includes(session.localId)) return;
+  switchTo('Game', { seed: msg.seed, round: new NetworkRound(session, msg) });
+});
+
+session.on('disconnected', ({ wasInRoom }) => {
+  if (wasInRoom) switchTo('Menu', { error: 'Lost connection to the server.' });
+});
+
+session.on('notice', ({ text }) => showToast(text));
+session.on('error', ({ message }) => {
+  // The menu shows its own errors inline.
+  if (!game.scene.isActive('Menu')) showToast(message, { error: true });
 });
 
 // Handy for poking at the game from the browser console during development.

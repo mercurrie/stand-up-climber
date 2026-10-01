@@ -11,15 +11,92 @@
         height: 100%;
         background: #1d1b2f;
         overflow: hidden;
+        font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
       }
       #game {
         width: 100%;
         height: 100%;
       }
+
+      /* Menu form (rendered inside the Phaser canvas via its DOM layer, so it
+         scales with the game). */
+      .menu-form {
+        width: 340px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        color: #ffffff;
+      }
+      .menu-form label {
+        font-size: 15px;
+        font-weight: bold;
+        color: #a9a6c9;
+      }
+      .menu-form input {
+        box-sizing: border-box;
+        width: 100%;
+        margin-top: 6px;
+        padding: 12px 14px;
+        border: 2px solid #3a3760;
+        border-radius: 12px;
+        background: #2b2950;
+        color: #ffffff;
+        font-size: 20px;
+        font-weight: bold;
+        font-family: inherit;
+        outline: none;
+      }
+      .menu-form input:focus { border-color: #4cc9f0; }
+      .menu-form .code-input { text-transform: uppercase; letter-spacing: 6px; text-align: center; }
+      .menu-form button {
+        padding: 14px;
+        border: 0;
+        border-radius: 14px;
+        background: #4cc9f0;
+        color: #1d1b2f;
+        font-size: 20px;
+        font-weight: bold;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .menu-form button:hover { background: #7ad9f5; }
+      .menu-form button:disabled { opacity: 0.4; cursor: default; }
+      .menu-form button.secondary { background: #3a3760; color: #ffffff; }
+      .menu-form button.secondary:hover { background: #4a4778; }
+      .menu-form .join-row { display: flex; gap: 10px; align-items: flex-end; }
+      .menu-form .join-row label { flex: 1; }
+      .menu-form .divider { text-align: center; color: #a9a6c9; font-size: 14px; }
+      .menu-form .error { min-height: 20px; margin: 0; color: #ff6b6b; font-weight: bold; text-align: center; }
+
+      /* Toast notices, e.g. "Sam left". */
+      #toasts {
+        position: fixed;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        pointer-events: none;
+        z-index: 10;
+      }
+      .toast {
+        padding: 8px 16px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 15px;
+        transition: opacity 0.4s;
+      }
+      .toast-error { background: rgba(170, 40, 40, 0.85); }
+      .toast-hide { opacity: 0; }
     </style>
   </head>
   <body>
     <div id="game"></div>
+    <div id="toasts"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

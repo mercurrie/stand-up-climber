@@ -1,3 +1,4 @@
+import { Rules } from '@stand-up-climber/shared';
 import { COLORS, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT } from '../config/display.js';
 import { LEADERBOARD_WIDTH, Leaderboard } from './Leaderboard.js';
 import { formatClock, formatPercent } from './format.js';
@@ -55,9 +56,12 @@ export class Hud {
   // Derived from the shared start time each frame (not a local timer), so
   // every player's "3, 2, 1, GO!" lines up.
   updateCountdown(now, phase, startAt) {
+    // Multiplayer rounds start with a short network lead before "3"
+    // (Rules.ROUND_START_LEAD_MS); show nothing during it.
+    const remaining = startAt - now;
     let label = '';
-    if (phase === 'countdown') label = String(Math.ceil((startAt - now) / 1000));
-    else if (now - startAt < 700) label = 'GO!';
+    if (phase === 'countdown') label = remaining > Rules.COUNTDOWN_MS ? '' : String(Math.ceil(remaining / 1000));
+    else if (-remaining < 700) label = 'GO!';
     if (label === this.lastCountdownLabel) return;
     this.lastCountdownLabel = label;
 
