@@ -12,7 +12,7 @@ const STAR_COUNT = 140;
  *
  * Level data uses "height above ground"; Phaser uses y-down world coordinates.
  * This class is the only place that converts between the two, which keeps
- * progress tracking (Phase 4) and obstacle spawning (Phase 3) simple.
+ * progress tracking and obstacle spawning simple.
  */
 export class Level {
   constructor(data) {
@@ -68,14 +68,13 @@ export class Level {
   createPlatforms(scene) {
     const group = scene.physics.add.staticGroup();
 
-    const ground = this.addPlatform(scene, group, {
+    this.addPlatform(scene, group, {
       x: this.width / 2,
       height: 0,
       width: this.width,
       thickness: this.data.groundThickness,
       color: GROUND_COLOR,
     });
-    ground.setData('ground', true);
 
     for (const p of this.data.platforms) {
       const platform = this.addPlatform(scene, group, {

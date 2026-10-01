@@ -3,6 +3,7 @@ import { Rules } from '@stand-up-climber/shared';
 import { COLORS, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT } from '../config/display.js';
 import { Button } from '../ui/Button.js';
 import { showToast } from '../ui/toast.js';
+import { addMuteButton } from '../ui/MuteButton.js';
 import { inviteLink, setRoomCodeInUrl } from '../networking/inviteLink.js';
 
 const LIST_TOP = 260;
@@ -42,6 +43,8 @@ export class LobbyScene extends Phaser.Scene {
     new Button(this, cx, GAME_HEIGHT - 45, 'Leave room', () => this.leave(), {
       width: 160, height: 40, fontSize: 16, variant: 'secondary',
     });
+
+    addMuteButton(this);
 
     const onRoom = (room) => this.render(room);
     this.session.on('room', onRoom);

@@ -1,12 +1,8 @@
 # Stand-Up Climber
 
 A tiny multiplayer vertical platformer for deciding who hosts next week's stand-up.
-Everyone climbs at once, falling blocks knock you back to the bottom, and the
-best climber wins the honour of hosting.
-
-> **Status:** Phase 5 (multiplayer). Create a room, share the code or invite
-> link, and the host starts the race. "Practice solo" is still on the menu.
-> Add `?debug` to the URL to see physics hitboxes.
+Everyone climbs at once, grumpy falling balls knock you back to the bottom,
+and the best climber wins the honour of hosting.
 
 ## How to play
 
@@ -21,6 +17,15 @@ best climber wins the honour of hosting.
 
 Rooms hold 2–10 players. If the host leaves, the next person becomes host.
 Anyone who joins mid-round waits in the lobby and joins the next round.
+
+Other handy things:
+
+- **Practice solo** on the menu plays a round on your own. Press R to restart
+  it with new obstacles.
+- **M** toggles sound, or use the 🔊 button on the menu and lobby.
+- Red **!** markers at the top of the screen warn you about incoming
+  obstacles. The bar on the right shows where everyone is.
+- Add `?debug` to the URL to see physics hitboxes.
 
 ## Rules
 

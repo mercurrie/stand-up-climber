@@ -35,11 +35,6 @@ export class Button extends Phaser.GameObjects.Container {
     this.bg.fillRoundedRect(-this.w / 2, -this.h / 2, this.w, this.h, 16);
   }
 
-  setLabel(label) {
-    this.text.setText(label);
-    return this;
-  }
-
   setEnabled(enabled) {
     this.enabled = enabled;
     this.setAlpha(enabled ? 1 : 0.4);

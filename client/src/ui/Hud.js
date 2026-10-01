@@ -4,6 +4,8 @@ import { LEADERBOARD_WIDTH, Leaderboard } from './Leaderboard.js';
 import { formatClock, formatPercent } from './format.js';
 
 const DEPTH = 100;
+// Width of the timer + "Now/Best" block in the top-left.
+const TIMER_AREA_WIDTH = 210;
 
 /**
  * Everything drawn on top of the game, fixed to the screen: round timer, your
@@ -11,8 +13,9 @@ const DEPTH = 100;
  * Holds no game state; GameScene feeds it each frame.
  */
 export class Hud {
-  constructor(scene) {
+  constructor(scene, sfx) {
     this.scene = scene;
+    this.sfx = sfx;
     const fixed = (obj) => obj.setScrollFactor(0).setDepth(DEPTH);
     const style = (size, color = COLORS.text) => ({
       fontFamily: FONT_FAMILY,
@@ -67,9 +70,21 @@ export class Hud {
 
     this.countdown.setText(label);
     if (!label) return;
+    if (label === 'GO!') this.sfx.go();
+    else this.sfx.countdownTick();
     this.scene.tweens.killTweensOf(this.countdown);
     this.countdown.setScale(1.6).setAlpha(1);
     this.scene.tweens.add({ targets: this.countdown, scale: 1, duration: 300, ease: 'Back.easeOut' });
+  }
+
+  /**
+   * Highest screen y at column x that's free of HUD text, so obstacle
+   * warnings never sit on top of the timer or leaderboard.
+   */
+  clearTopAt(x) {
+    if (this.leaderboard.coversX(x)) return this.leaderboard.bottom + 6;
+    if (x < TIMER_AREA_WIDTH) return this.progress.y + this.progress.height + 6;
+    return 6;
   }
 
   /** A short announcement under the timer. Stays up if `holdMs` is null. */

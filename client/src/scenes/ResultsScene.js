@@ -6,7 +6,10 @@ import { Button } from '../ui/Button.js';
 import { PLAYER_TEXTURE, ensurePlayerTexture } from '../entities/playerTexture.js';
 
 const ROW_HEIGHT = 34;
+const REVEAL_START_MS = 400;
+const REVEAL_STEP_MS = 280;
 const CONFETTI_KEY = 'confetti';
+const CROWN_KEY = 'crown';
 const SMALL_BUTTON = { width: 140, height: 40, fontSize: 16, variant: 'secondary' };
 
 /**
@@ -32,41 +35,62 @@ export class ResultsScene extends Phaser.Scene {
     });
 
     this.cameras.main.setBackgroundColor(COLORS.background);
-    this.startConfetti();
+    this.sfx = this.registry.get('sfx');
 
     text(cx, 50, '🏆 FINAL RESULTS', 32, COLORS.accent).setOrigin(0.5);
 
-    // Rankings
+    // Rankings, revealed from last place up for a bit of suspense.
     const top = 100;
-    rankings.forEach((player, i) => {
+    const rows = rankings.map((player, i) => {
       const y = top + i * ROW_HEIGHT;
       const color = player.id === localId ? COLORS.accent : COLORS.text;
-      text(70, y, MEDALS[i] ?? `${i + 1}`, 22).setOrigin(0.5, 0);
-      this.add.circle(108, y + 13, 7, player.color);
-      text(124, y, player.name, 22, color);
-      text(GAME_WIDTH - 60, y, formatPercent(player.best), 22, color).setOrigin(1, 0);
+      return this.add.container(0, 0, [
+        text(70, y, MEDALS[i] ?? `${i + 1}`, 22).setOrigin(0.5, 0),
+        this.add.circle(108, y + 13, 7, player.color),
+        text(124, y, player.name, 22, color),
+        text(GAME_WIDTH - 60, y, formatPercent(player.best), 22, color).setOrigin(1, 0),
+      ]).setAlpha(0);
+    });
+    [...rows].reverse().forEach((row, step) => {
+      this.time.delayedCall(REVEAL_START_MS + step * REVEAL_STEP_MS, () => {
+        row.x = -30;
+        this.tweens.add({ targets: row, alpha: 1, x: 0, duration: 250, ease: 'Back.easeOut' });
+        this.sfx.reveal(step);
+      });
     });
 
-    // The winner: their character bouncing just above the announcement, which
-    // sits at a fixed spot so it never collides with a full 10-player list.
-    const announceY = GAME_HEIGHT - 265;
-    if (winner) {
-      const hero = this.add.image(cx, announceY - 12, PLAYER_TEXTURE).setTint(winner.color).setScale(1.5).setOrigin(0.5, 1);
-      this.tweens.add({ targets: hero, y: hero.y - 30, duration: 380, ease: 'Quad.easeOut', yoyo: true, repeat: -1 });
-
-      const announcement = text(cx, announceY, hostingLine(winner.name), 34, COLORS.accent, {
-        align: 'center',
-        stroke: '#1d1b2f',
-        strokeThickness: 8,
-        wordWrap: { width: GAME_WIDTH - 30 },
-      }).setOrigin(0.5, 0);
-      announcement.setScale(0);
-      this.tweens.add({ targets: announcement, scale: 1, duration: 600, delay: 300, ease: 'Back.easeOut' });
-      this.tweens.add({ targets: announcement, angle: { from: -3, to: 3 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    }
+    const winnerRevealAt = REVEAL_START_MS + rows.length * REVEAL_STEP_MS + 200;
+    if (winner) this.time.delayedCall(winnerRevealAt, () => this.revealWinner(winner, text));
 
     if (solo) this.createSoloButtons(cx);
     else this.createRoomButtons(cx);
+  }
+
+  // The winner: their character, wearing a crown, bouncing just above the
+  // announcement. Fixed position so it never collides with a full room.
+  revealWinner(winner, text) {
+    const cx = GAME_WIDTH / 2;
+    const announceY = GAME_HEIGHT - 265;
+    ensureCrownTexture(this);
+
+    const body = this.add.image(0, 0, PLAYER_TEXTURE).setTint(winner.color).setScale(1.5).setOrigin(0.5, 1);
+    const crown = this.add.image(0, -body.displayHeight + 4, CROWN_KEY).setOrigin(0.5, 1);
+    const hero = this.add.container(cx, announceY - 12, [body, crown]).setScale(0);
+    this.tweens.add({ targets: hero, scale: 1, duration: 400, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: hero, y: hero.y - 30, duration: 380, ease: 'Quad.easeOut', yoyo: true, repeat: -1, delay: 400 });
+    this.tweens.add({ targets: crown, angle: { from: -8, to: 8 }, duration: 380, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    const announcement = text(cx, announceY, hostingLine(winner.name), 34, COLORS.accent, {
+      align: 'center',
+      stroke: '#1d1b2f',
+      strokeThickness: 8,
+      wordWrap: { width: GAME_WIDTH - 30 },
+    }).setOrigin(0.5, 0).setScale(0);
+    this.tweens.add({ targets: announcement, scale: 1, duration: 600, delay: 150, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: announcement, angle: { from: -3, to: 3 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    this.sfx.victory();
+    this.startConfetti(winner.color);
   }
 
   createSoloButtons(cx) {
@@ -98,7 +122,8 @@ export class ResultsScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ENTER', () => playAgain.visible && playAgain.enabled && session.startRound());
   }
 
-  startConfetti() {
+  /** Steady confetti in everyone's colours, plus an opening burst in the winner's. */
+  startConfetti(winnerColor) {
     if (!this.textures.exists(CONFETTI_KEY)) {
       const g = this.make.graphics({ add: false });
       g.fillStyle(0xffffff, 1);
@@ -106,6 +131,15 @@ export class ResultsScene extends Phaser.Scene {
       g.generateTexture(CONFETTI_KEY, 8, 12);
       g.destroy();
     }
+    this.add.particles(GAME_WIDTH / 2, GAME_HEIGHT - 300, CONFETTI_KEY, {
+      emitting: false,
+      speed: { min: 200, max: 520 },
+      angle: { min: 200, max: 340 },
+      gravityY: 500,
+      rotate: { start: 0, end: 540 },
+      lifespan: 2200,
+      tint: [winnerColor, 0xffd166, 0xffffff],
+    }).setDepth(-1).explode(80);
     this.add.particles(0, -20, CONFETTI_KEY, {
       x: { min: 0, max: GAME_WIDTH },
       lifespan: 4000,
@@ -117,4 +151,18 @@ export class ResultsScene extends Phaser.Scene {
       quantity: 2,
     }).setDepth(-1);
   }
+}
+
+function ensureCrownTexture(scene) {
+  if (scene.textures.exists(CROWN_KEY)) return;
+  const g = scene.make.graphics({ add: false });
+  g.fillStyle(0xffd166, 1);
+  g.fillPoints([
+    { x: 0, y: 22 }, { x: 0, y: 6 }, { x: 8, y: 13 }, { x: 15, y: 0 },
+    { x: 22, y: 13 }, { x: 30, y: 6 }, { x: 30, y: 22 },
+  ], true);
+  g.fillStyle(0xff6b9d, 1);
+  g.fillCircle(15, 16, 3);
+  g.generateTexture(CROWN_KEY, 30, 22);
+  g.destroy();
 }

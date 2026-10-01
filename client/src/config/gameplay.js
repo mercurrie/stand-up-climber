@@ -1,6 +1,6 @@
 // Gameplay tuning. Units are pixels and seconds unless noted.
 //
-// Handy derived numbers (keep level gaps below MAX_JUMP_HEIGHT):
+// Handy derived numbers (keep level gaps well below the max jump height):
 //   max jump height = JUMP_VELOCITY² / (2 · GRAVITY) ≈ 240 px
 //   air time (same-height bounce) = 2 · JUMP_VELOCITY / GRAVITY ≈ 1.17 s
 
@@ -23,7 +23,6 @@ export const PLAYER = {
   MAX_FALL_SPEED: 900,
 };
 
-export const MAX_JUMP_HEIGHT = (PLAYER.JUMP_VELOCITY ** 2) / (2 * GRAVITY);
 
 export const CAMERA = {
   // Keep the player below screen centre so upcoming platforms are visible.

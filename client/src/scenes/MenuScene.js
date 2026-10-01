@@ -3,6 +3,7 @@ import { Rules } from '@stand-up-climber/shared';
 import { SERVER_URL } from '../config/network.js';
 import { COLORS, FONT_FAMILY, GAME_WIDTH } from '../config/display.js';
 import { roomCodeFromUrl, setRoomCodeInUrl } from '../networking/inviteLink.js';
+import { addMuteButton } from '../ui/MuteButton.js';
 
 const NAME_STORAGE_KEY = 'stand-up-climber:name';
 // Re-enable the buttons if the server never answers.
@@ -86,6 +87,7 @@ export class MenuScene extends Phaser.Scene {
       clearTimeout(this.busyTimer);
     });
 
+    addMuteButton(this);
     this.updateStatus();
     this.time.addEvent({ delay: 500, loop: true, callback: () => this.updateStatus() });
   }

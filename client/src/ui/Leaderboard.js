@@ -31,6 +31,12 @@ export class Leaderboard {
       };
     });
     this.lastKey = '';
+    this.bottom = y;
+  }
+
+  /** True if screen x falls within the panel's columns. */
+  coversX(x) {
+    return x >= this.x - 12 && x <= this.x + LEADERBOARD_WIDTH + 12;
   }
 
   update(standings, localId) {
@@ -40,7 +46,9 @@ export class Leaderboard {
 
     this.background.clear();
     this.background.fillStyle(0x000000, 0.35);
-    this.background.fillRoundedRect(this.x, this.y, LEADERBOARD_WIDTH, PADDING * 2 + standings.length * ROW_HEIGHT, 8);
+    const height = PADDING * 2 + standings.length * ROW_HEIGHT;
+    this.bottom = this.y + height;
+    this.background.fillRoundedRect(this.x, this.y, LEADERBOARD_WIDTH, height, 8);
 
     this.rows.forEach((row, i) => {
       const player = standings[i];

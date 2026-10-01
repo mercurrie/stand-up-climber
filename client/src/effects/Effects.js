@@ -16,11 +16,25 @@ export class Effects {
       lifespan: { min: 300, max: 600 },
       gravityY: 500,
     }).setDepth(50);
+
+    // Soft puffs kicked up sideways when landing.
+    this.dustEmitter = scene.add.particles(0, 0, SPARK_KEY, {
+      emitting: false,
+      speed: { min: 30, max: 90 },
+      angle: { min: 190, max: 350 },
+      scale: { start: 0.8, end: 0 },
+      alpha: { start: 0.6, end: 0 },
+      lifespan: 280,
+    }).setDepth(3);
   }
 
   burst(x, y, color, count = 18) {
     this.emitter.setParticleTint(color);
     this.emitter.explode(count, x, y);
+  }
+
+  dust(x, y) {
+    this.dustEmitter.explode(5, x, y);
   }
 
   floatingText(x, y, text, color = '#ffffff') {

@@ -92,6 +92,7 @@ export class GameServer {
   }
 
   addToRoom(socket, room, name) {
+    if (socket.room === room) return;
     this.leaveRoom(socket);
     socket.room = room;
     room.addPlayer(new Player({ id: socket.id, socket, name }));

@@ -156,7 +156,8 @@ export class GameRoom {
     const taken = new Set([...this.players.values()].map((p) => p.name.toLowerCase()));
     if (!taken.has(name.toLowerCase())) return name;
     for (let n = 2; ; n++) {
-      const candidate = `${name.slice(0, Rules.MAX_NAME_LENGTH - 2)} ${n}`;
+      const suffix = ` ${n}`;
+      const candidate = `${name.slice(0, Rules.MAX_NAME_LENGTH - suffix.length)}${suffix}`;
       if (!taken.has(candidate.toLowerCase())) return candidate;
     }
   }

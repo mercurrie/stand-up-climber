@@ -7,6 +7,7 @@ import { NetworkClient } from './networking/NetworkClient.js';
 import { RoomSession } from './networking/RoomSession.js';
 import { NetworkRound } from './round/NetworkRound.js';
 import { showToast } from './ui/toast.js';
+import { Sfx } from './audio/Sfx.js';
 import { SERVER_URL } from './config/network.js';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from './config/display.js';
 import { GRAVITY } from './config/gameplay.js';
@@ -33,11 +34,21 @@ const game = new Phaser.Game({
   scene: [MenuScene, LobbyScene, GameScene, ResultsScene],
 });
 
-// One connection and room session for the whole app, shared via the registry.
+// One connection, room session and sound player for the whole app, shared
+// with scenes via the registry.
 const net = new NetworkClient(SERVER_URL);
 const session = new RoomSession(net);
+const sfx = new Sfx(game);
 game.registry.set('session', session);
+game.registry.set('sfx', sfx);
 net.connect();
+
+// M toggles sound anywhere (except while typing in the menu's inputs).
+window.addEventListener('keydown', (event) => {
+  if (event.key?.toLowerCase() !== 'm' || event.target instanceof HTMLInputElement) return;
+  sfx.toggleMute();
+  showToast(sfx.muted ? 'Sound off (M to turn on)' : 'Sound on');
+});
 
 // Scene changes driven by the server live here, in one place, rather than
 // in every scene that might be showing when they happen.

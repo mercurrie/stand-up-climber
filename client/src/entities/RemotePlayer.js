@@ -15,6 +15,7 @@ const ALPHA = 0.6;
 export class RemotePlayer {
   constructor(scene, { name, color }) {
     ensurePlayerTexture(scene);
+    this.color = color;
     this.sprite = scene.add.image(0, 0, PLAYER_TEXTURE)
       .setOrigin(0.5, 1).setTint(color).setAlpha(ALPHA).setDepth(4).setVisible(false);
     this.label = scene.add.text(0, 0, name, {

@@ -22,8 +22,8 @@ export class NetworkRound extends Phaser.Events.EventEmitter {
     this.someoneFinished = false;
     this.ended = false;
 
-    // Names/colours for everyone in this round, captured at the start so the
-    // results still show someone who left the room afterwards.
+    // Names/colours for everyone in this round, captured at the start.
+    // Snapshots only carry ids and positions; this fills in the rest.
     this.roster = new Map(playerIds.map((id) => {
       const p = session.playerById(id) ?? { id, name: '???', color: 0xffffff };
       return [id, { id, name: p.name, color: p.color }];
@@ -82,7 +82,7 @@ export class NetworkRound extends Phaser.Events.EventEmitter {
   handleFirstFinish({ playerId, name, endsAt }) {
     this.someoneFinished = true;
     this.endsAt = this.session.net.serverToLocalTime(endsAt);
-    this.emit('first-finish', { name, isLocal: playerId === this.localId, endsAt: this.endsAt });
+    this.emit('first-finish', { name, isLocal: playerId === this.localId });
   }
 
   handleRoundEnd({ rankings }) {

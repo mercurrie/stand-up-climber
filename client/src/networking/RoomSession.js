@@ -20,11 +20,18 @@ export class RoomSession extends Phaser.Events.EventEmitter {
     super();
     this.net = net;
     this.room = null;
+    // True between asking to create/join and getting the first ROOM_STATE.
+    // Room updates that arrive when we're neither in a room nor joining one
+    // (e.g. still in flight just after pressing Leave) are ignored.
+    this.joining = false;
 
     net.on(ServerMsg.ROOM_STATE, (msg) => {
+      if (!this.room && !this.joining) return;
+      this.joining = false;
       this.room = msg;
       this.emit('room', msg);
     });
+    net.on(ServerMsg.ERROR, () => { this.joining = false; });
     net.on(ServerMsg.ROUND_START, (msg) => this.emit('round-start', msg));
     net.on(ServerMsg.SNAPSHOT, (msg) => this.emit('snapshot', msg));
     net.on(ServerMsg.FIRST_FINISH, (msg) => this.emit('first-finish', msg));
@@ -34,6 +41,7 @@ export class RoomSession extends Phaser.Events.EventEmitter {
     net.on('close', () => {
       const wasInRoom = Boolean(this.room);
       this.room = null;
+      this.joining = false;
       this.emit('disconnected', { wasInRoom });
     });
   }
@@ -51,16 +59,19 @@ export class RoomSession extends Phaser.Events.EventEmitter {
   }
 
   createRoom(name) {
-    return this.net.send(ClientMsg.CREATE_ROOM, { name });
+    this.joining = this.net.send(ClientMsg.CREATE_ROOM, { name });
+    return this.joining;
   }
 
   joinRoom(code, name) {
-    return this.net.send(ClientMsg.JOIN_ROOM, { code, name });
+    this.joining = this.net.send(ClientMsg.JOIN_ROOM, { code, name });
+    return this.joining;
   }
 
   leaveRoom() {
     this.net.send(ClientMsg.LEAVE_ROOM);
     this.room = null;
+    this.joining = false;
   }
 
   startRound() {

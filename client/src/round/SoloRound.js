@@ -10,7 +10,7 @@ import { RoundState, Rules } from '@stand-up-climber/shared';
  *   reportProgress({ current, best, finished })
  *   reportPosition({ x, y, flip, hidden }, now)
  *   update(now), destroy()
- *   events: 'first-finish' ({ name, isLocal, endsAt }), 'ended' ({ rankings })
+ *   events: 'first-finish' ({ name, isLocal }), 'ended' ({ rankings })
  *
  * All times are local Date.now() milliseconds.
  */
@@ -42,7 +42,7 @@ export class SoloRound extends Phaser.Events.EventEmitter {
   reportProgress(progress) {
     const event = this.state.updateProgress(this.localId, progress, Date.now());
     if (event?.type === 'first-finish') {
-      this.emit('first-finish', { name: event.player.name, isLocal: event.player.id === this.localId, endsAt: event.endsAt });
+      this.emit('first-finish', { name: event.player.name, isLocal: event.player.id === this.localId });
     }
   }
 

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { Rules } from '@stand-up-climber/shared';
 import { Level } from '../level/Level.js';
 import { LEVEL_1 } from '../level/level1.js';
 import { LocalPlayer } from '../entities/LocalPlayer.js';
@@ -8,6 +9,8 @@ import { createObstacleSchedule } from '../level/obstacleSchedule.js';
 import { Effects } from '../effects/Effects.js';
 import { SoloRound } from '../round/SoloRound.js';
 import { Hud } from '../ui/Hud.js';
+import { ObstacleWarnings } from '../ui/ObstacleWarnings.js';
+import { ProgressTrack } from '../ui/ProgressTrack.js';
 import { CAMERA } from '../config/gameplay.js';
 import { COLORS, GAME_HEIGHT, PLAYER_COLORS } from '../config/display.js';
 
@@ -82,7 +85,10 @@ export class GameScene extends Phaser.Scene {
     camera.startFollow(this.player.hitbox, true, 1, CAMERA.LERP_Y);
     camera.setFollowOffset(0, GAME_HEIGHT * CAMERA.FOLLOW_OFFSET_Y);
 
-    this.hud = new Hud(this);
+    this.sfx = this.registry.get('sfx');
+    this.hud = new Hud(this, this.sfx);
+    this.warnings = new ObstacleWarnings(this, this.obstacles, (x) => this.hud.clearTopAt(x));
+    this.track = new ProgressTrack(this);
     this.hud.announce('← → or A D to move\nYou bounce automatically!', {
       holdMs: Math.max(0, this.round.startAt - Date.now()),
       color: COLORS.text,
@@ -127,6 +133,17 @@ export class GameScene extends Phaser.Scene {
 
     this.round.update(now);
     this.hud.update({ now, phase, round: this.round, ...this.progress });
+    this.warnings.update();
+    this.updateTrack();
+  }
+
+  updateTrack() {
+    const fractionAt = (worldY) => this.level.toHeight(worldY) / this.level.goalHeight;
+    const entries = [{ color: this.player.color, fraction: fractionAt(this.player.footY), isLocal: true }];
+    for (const remote of this.remotePlayers.values()) {
+      if (remote.sprite.visible) entries.push({ color: remote.color, fraction: fractionAt(remote.sprite.y), isLocal: false });
+    }
+    this.track.update(entries);
   }
 
   onSnapshot({ players }) {
@@ -153,9 +170,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   onFirstFinish({ name, isLocal }) {
+    const seconds = Rules.FINISH_WINDOW_MS / 1000;
     const message = isLocal
-      ? 'YOU MADE IT! 🎉\nOthers have 10s to catch up'
-      : `${name.toUpperCase()} REACHED THE TOP!\n10 seconds left!`;
+      ? `YOU MADE IT! 🎉\nOthers have ${seconds}s to catch up`
+      : `${name.toUpperCase()} REACHED THE TOP!\n${seconds} seconds left!`;
     this.hud.announce(message, { holdMs: 3500 });
   }
 
@@ -172,6 +190,7 @@ export class GameScene extends Phaser.Scene {
     this.effects.burst(x, y, this.player.color, 24);
     this.effects.floatingText(x, y - 20, Phaser.Utils.Array.GetRandom(HIT_WORDS), COLORS.bad);
     this.cameras.main.shake(180, 0.01);
+    this.sfx.hit();
 
     const start = this.level.startPosition;
     this.player.hit(start.x, start.y);
@@ -188,11 +207,16 @@ export class GameScene extends Phaser.Scene {
     this.player.bounce();
     if (this.player.frozen) return;
 
+    const height = this.level.toHeight(platform.body.top) / this.level.goalHeight;
+    this.effects.dust(this.player.body.center.x, this.player.body.bottom);
+    this.sfx.bounce(height);
+
     if (platform.getData('goal') && !this.progress.finished) {
       this.progress.finished = true;
       this.effects.burst(this.player.body.center.x, this.player.body.bottom, 0xffd166, 40);
+      this.sfx.finish();
     }
-    this.setProgress(this.level.toHeight(platform.body.top) / this.level.goalHeight);
+    this.setProgress(height);
   }
 
   /** Update progress and report it to the round, but only when it changed. */
