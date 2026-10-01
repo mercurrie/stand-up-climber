@@ -4,10 +4,21 @@ A tiny multiplayer vertical platformer for deciding who hosts next week's stand-
 Everyone climbs at once, falling blocks knock you back to the bottom, and the
 best climber wins the honour of hosting.
 
-> **Status:** Phase 3 (single-player with obstacles). Press any key on the title
-> screen to climb solo. Use ← → or A D to move; you bounce automatically. Dodge
-> the falling balls, or you go back to the bottom. Press R to restart with a
-> new obstacle pattern. Add `?debug` to the URL to see physics hitboxes.
+> **Status:** Phase 4 (full solo round). Press any key on the title screen to
+> play a practice round: a 3-2-1 countdown, a 90 s timer, live progress, and
+> the results screen. Use ← → or A D to move; you bounce automatically. Dodge
+> the falling balls, or you go back to the bottom. In practice, R restarts with
+> a new obstacle pattern. Add `?debug` to the URL to see physics hitboxes.
+
+## Rules
+
+- Progress is the height of the highest platform you've landed on (0–100%).
+  Getting hit resets your *current* progress, but your *best* is kept.
+- The first player to reach the top starts a 10 s finishing window. The round
+  also ends after 90 s, or as soon as everyone has reached the top.
+- Highest best progress wins. Ties go to whoever reached that height first.
+
+The rules live in `shared/src/RoundState.js` and are unit-tested (`npm test`).
 
 ## Repository layout
 

@@ -5,19 +5,30 @@ import { LocalPlayer } from '../entities/LocalPlayer.js';
 import { ObstacleField } from '../entities/ObstacleField.js';
 import { createObstacleSchedule } from '../level/obstacleSchedule.js';
 import { Effects } from '../effects/Effects.js';
+import { SoloRound } from '../round/SoloRound.js';
+import { Hud } from '../ui/Hud.js';
 import { CAMERA } from '../config/gameplay.js';
-import { COLORS, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT, PLAYER_COLORS } from '../config/display.js';
+import { COLORS, GAME_HEIGHT, PLAYER_COLORS } from '../config/display.js';
 
 // Arcade only reports the frame *after* overlap, so allow a little slack when
 // deciding whether the player was above a platform last frame.
 const LANDING_TOLERANCE = 2;
+// Pause on the final frame before showing results, so the ending registers.
+const RESULTS_DELAY_MS = 1800;
 
 const HIT_WORDS = ['BONK!', 'OOF!', 'OUCH!', 'NOPE!', 'BACK TO\nTHE START!'];
 
 /**
- * Single-player climb with falling obstacles.
- * Timer/progress/results (Phase 4) and remote players (Phase 5) will be
- * added here.
+ * One round of climbing.
+ *
+ * Time: everything is driven by `round.startAt` (a local Date.now() value).
+ * Obstacles, the countdown and the timer are all derived from it each frame,
+ * so in multiplayer they line up across browsers as long as everyone agrees
+ * on the start time.
+ *
+ * Progress: the height of the highest platform you've landed on, as a
+ * fraction of the course (0..1). Jump apexes don't count, so progress only
+ * moves when you've actually made it somewhere.
  */
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -25,14 +36,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * @param {{ seed?: number }} data  Obstacle seed. In multiplayer the server
-   *   provides it so everyone gets the same obstacles; solo play picks one.
+   * @param {{ seed?: number, round?: object }} data
+   *   seed:  obstacle seed. In multiplayer the server provides it so everyone
+   *          gets the same obstacles; solo play picks one.
+   *   round: the round to play (see SoloRound for the interface). Defaults to
+   *          a solo practice round.
    */
   init(data) {
     this.seed = data?.seed ?? Phaser.Math.Between(1, 1e9);
+    this.round = data?.round ?? null;
   }
 
   create() {
+    const playerColor = PLAYER_COLORS[0];
+    this.isSolo = !this.round;
+    this.round ??= new SoloRound({ player: { id: 'local', name: 'You', color: playerColor } });
+
     this.level = new Level(LEVEL_1);
     const { width, worldHeight } = this.level;
 
@@ -43,8 +62,9 @@ export class GameScene extends Phaser.Scene {
     this.obstacles = new ObstacleField(this, createObstacleSchedule(this.seed, this.level), this.effects);
 
     const start = this.level.startPosition;
-    this.player = new LocalPlayer(this, start.x, start.y, PLAYER_COLORS[0]);
-    this.hits = 0;
+    this.player = new LocalPlayer(this, start.x, start.y, playerColor);
+    this.progress = { current: 0, best: 0, finished: false };
+    this.lastReportedProgress = null;
 
     // One-way platforms: the process callback rejects collisions unless the
     // player is falling onto the top surface. The collide callback is the
@@ -61,27 +81,65 @@ export class GameScene extends Phaser.Scene {
     camera.startFollow(this.player.hitbox, true, 1, CAMERA.LERP_Y);
     camera.setFollowOffset(0, GAME_HEIGHT * CAMERA.FOLLOW_OFFSET_Y);
 
-    this.startedAt = Date.now();
-    this.reachedTop = false;
-    this.createHud();
+    this.hud = new Hud(this);
+    this.hud.announce('← → or A D to move\nYou bounce automatically!', {
+      holdMs: Math.max(0, this.round.startAt - Date.now()),
+      color: COLORS.text,
+    });
 
-    // Restart with a fresh seed (new obstacle pattern).
-    this.input.keyboard.on('keydown-R', () => this.scene.restart({}));
-  }
+    this.phase = null;
+    this.round.on('first-finish', this.onFirstFinish, this);
+    this.round.once('ended', this.onRoundEnded, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.round.off('first-finish', this.onFirstFinish, this);
+      this.round.off('ended', this.onRoundEnded, this);
+    });
 
-  update(_time, delta) {
-    this.player.update(delta);
-    this.obstacles.update(Date.now() - this.startedAt);
-
-    // Each client only checks hits against its own player. Remote players
-    // (Phase 5) report their own hits via their progress updates.
-    if (!this.reachedTop && this.player.canBeHit && this.obstacles.findHit(this.player.bounds)) {
-      this.onPlayerHit();
+    if (this.isSolo) {
+      // Practice only: restart with a fresh seed (new obstacle pattern).
+      this.input.keyboard.on('keydown-R', () => this.scene.restart({}));
     }
   }
 
+  update(_time, delta) {
+    const now = Date.now();
+    const phase = this.round.phase(now);
+    if (phase !== this.phase) this.onPhaseChange(phase);
+
+    this.player.update(delta);
+    this.obstacles.update(now - this.round.startAt);
+
+    // Each client only checks hits against its own player. Remote players
+    // (Phase 5) report their own hits via their progress updates.
+    if (!this.progress.finished && this.player.canBeHit && this.obstacles.findHit(this.player.bounds)) {
+      this.onPlayerHit();
+    }
+
+    this.round.update(now);
+    this.hud.update({ now, phase, round: this.round, ...this.progress });
+  }
+
+  onPhaseChange(phase) {
+    this.phase = phase;
+    this.player.setFrozen(phase === 'countdown' || phase === 'ended');
+  }
+
+  onFirstFinish({ name, isLocal }) {
+    const message = isLocal
+      ? 'YOU MADE IT! 🎉\nOthers have 10s to catch up'
+      : `${name.toUpperCase()} REACHED THE TOP!\n10 seconds left!`;
+    this.hud.announce(message, { holdMs: 3500 });
+  }
+
+  onRoundEnded({ rankings }) {
+    const message = this.progress.finished ? 'FINISHED!' : "TIME'S UP!";
+    this.hud.announce(message, { holdMs: null, color: this.progress.finished ? COLORS.good : COLORS.bad });
+    this.time.delayedCall(RESULTS_DELAY_MS, () => {
+      this.scene.start('Results', { rankings, localId: this.round.localId });
+    });
+  }
+
   onPlayerHit() {
-    this.hits++;
     const { x, y } = this.player.body.center;
     this.effects.burst(x, y, this.player.color, 24);
     this.effects.floatingText(x, y - 20, Phaser.Utils.Array.GetRandom(HIT_WORDS), COLORS.bad);
@@ -89,6 +147,7 @@ export class GameScene extends Phaser.Scene {
 
     const start = this.level.startPosition;
     this.player.hit(start.x, start.y);
+    this.setProgress(0);
   }
 
   canLand(platform) {
@@ -99,30 +158,23 @@ export class GameScene extends Phaser.Scene {
 
   handleLanding(platform) {
     this.player.bounce();
-    if (platform.getData('goal') && !this.reachedTop) this.onReachedTop();
+    if (this.player.frozen) return;
+
+    if (platform.getData('goal') && !this.progress.finished) {
+      this.progress.finished = true;
+      this.effects.burst(this.player.body.center.x, this.player.body.bottom, 0xffd166, 40);
+    }
+    this.setProgress(this.level.toHeight(platform.body.top) / this.level.goalHeight);
   }
 
-  // Placeholder until Phase 4 adds the real finish flow.
-  onReachedTop() {
-    this.reachedTop = true;
-    this.tweens.killTweensOf(this.hint);
-    const seconds = ((Date.now() - this.startedAt) / 1000).toFixed(1);
-    const bonks = this.hits === 1 ? '1 bonk' : `${this.hits} bonks`;
-    this.hint.setText(`Top in ${seconds}s (${bonks})!\nPress R to climb again`).setAlpha(1);
-    this.hint.setColor(COLORS.accent);
-  }
-
-  createHud() {
-    this.hint = this.add.text(GAME_WIDTH / 2, 70, '← → or A D to move\nYou bounce automatically!', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '22px',
-      fontStyle: 'bold',
-      color: COLORS.text,
-      align: 'center',
-      stroke: '#1d1b2f',
-      strokeThickness: 5,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
-
-    this.tweens.add({ targets: this.hint, alpha: 0, delay: 3500, duration: 600 });
+  /** Update progress and report it to the round, but only when it changed. */
+  setProgress(current) {
+    const p = this.progress;
+    p.current = current;
+    p.best = Math.max(p.best, current);
+    const key = `${p.current}|${p.best}|${p.finished}`;
+    if (key === this.lastReportedProgress) return;
+    this.lastReportedProgress = key;
+    this.round.reportProgress({ ...p });
   }
 }

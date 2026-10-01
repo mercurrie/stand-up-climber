@@ -31,6 +31,7 @@ export class LocalPlayer {
     this.sprite = scene.add.image(x, y, TEXTURE_KEY).setOrigin(0.5, 1).setTint(color).setDepth(5);
     this.boundsRect = new Phaser.Geom.Rectangle();
     this.invulnerableUntil = 0;
+    this.frozen = false;
 
     const kb = scene.input.keyboard;
     this.keys = {
@@ -55,7 +56,18 @@ export class LocalPlayer {
     return this.body.bottom;
   }
 
+  /**
+   * Frozen players don't move or respond to input (countdown, round over).
+   * Separate from body.enable, which hit()/respawn uses.
+   */
+  setFrozen(frozen) {
+    this.frozen = frozen;
+    this.body.moves = !frozen;
+    if (frozen) this.body.setVelocity(0, 0);
+  }
+
   update(delta) {
+    if (this.frozen) return;
     const left = this.keys.left.isDown || this.keys.a.isDown;
     const right = this.keys.right.isDown || this.keys.d.isDown;
     const direction = (right ? 1 : 0) - (left ? 1 : 0);
@@ -71,7 +83,7 @@ export class LocalPlayer {
 
   /** True when an obstacle can hit us: not mid-respawn and not invulnerable. */
   get canBeHit() {
-    return this.body.enable && this.scene.time.now >= this.invulnerableUntil;
+    return !this.frozen && this.body.enable && this.scene.time.now >= this.invulnerableUntil;
   }
 
   /** Hitbox as a Phaser.Geom.Rectangle, for overlap tests. */

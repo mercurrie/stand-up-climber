@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene.js';
 import { GameScene } from './scenes/GameScene.js';
+import { ResultsScene } from './scenes/ResultsScene.js';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from './config/display.js';
 import { GRAVITY } from './config/gameplay.js';
 
@@ -21,7 +22,7 @@ const game = new Phaser.Game({
     default: 'arcade',
     arcade: { gravity: { y: GRAVITY }, debug },
   },
-  scene: [BootScene, GameScene],
+  scene: [BootScene, GameScene, ResultsScene],
 });
 
 // Handy for poking at the game from the browser console during development.
