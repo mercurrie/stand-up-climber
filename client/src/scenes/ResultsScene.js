@@ -3,13 +3,17 @@ import { Rules } from '@stand-up-climber/shared';
 import { COLORS, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT, PLAYER_COLORS } from '../config/display.js';
 import { MEDALS, formatPercent, hostingLine } from '../ui/format.js';
 import { Button } from '../ui/Button.js';
-import { PLAYER_TEXTURE, ensurePlayerTexture } from '../entities/playerTexture.js';
+import { PLAYER } from '../config/gameplay.js';
+import { createCharacter } from '../entities/characterView.js';
+import { hatHeightAboveHead } from '../entities/hats.js';
 
 const ROW_HEIGHT = 34;
 const REVEAL_START_MS = 400;
 const REVEAL_STEP_MS = 280;
 const CONFETTI_KEY = 'confetti';
 const CROWN_KEY = 'crown';
+const CROWN_HEIGHT = 22;
+const HERO_BOUNCE = 30;
 const SMALL_BUTTON = { width: 140, height: 40, fontSize: 16, variant: 'secondary' };
 
 /**
@@ -23,7 +27,6 @@ export class ResultsScene extends Phaser.Scene {
   }
 
   create({ rankings, localId, solo }) {
-    ensurePlayerTexture(this);
     const cx = GAME_WIDTH / 2;
     const winner = rankings[0];
     const text = (x, y, value, size, color = COLORS.text, extra = {}) => this.add.text(x, y, value, {
@@ -46,8 +49,8 @@ export class ResultsScene extends Phaser.Scene {
       const color = player.id === localId ? COLORS.accent : COLORS.text;
       return this.add.container(0, 0, [
         text(70, y, MEDALS[i] ?? `${i + 1}`, 22).setOrigin(0.5, 0),
-        this.add.circle(108, y + 13, 7, player.color),
-        text(124, y, player.name, 22, color),
+        createCharacter(this, 108, y + 27, player, 0.6),
+        text(126, y, player.name, 22, color),
         text(GAME_WIDTH - 60, y, formatPercent(player.best), 22, color).setOrigin(1, 0),
       ]).setAlpha(0);
     });
@@ -60,24 +63,31 @@ export class ResultsScene extends Phaser.Scene {
     });
 
     const winnerRevealAt = REVEAL_START_MS + rows.length * REVEAL_STEP_MS + 200;
-    if (winner) this.time.delayedCall(winnerRevealAt, () => this.revealWinner(winner, text));
+    const rowsBottom = top + rows.length * ROW_HEIGHT;
+    if (winner) this.time.delayedCall(winnerRevealAt, () => this.revealWinner(winner, text, rowsBottom));
 
     if (solo) this.createSoloButtons(cx);
     else this.createRoomButtons(cx);
   }
 
-  // The winner: their character, wearing a crown, bouncing just above the
-  // announcement. Fixed position so it never collides with a full room.
-  revealWinner(winner, text) {
+  // The winner: their character (hat and all) wearing a crown on top, bouncing
+  // just above the announcement. Sized to fit between the list and the
+  // announcement, so a tall hat never overlaps a full room's rankings.
+  revealWinner(winner, text, rowsBottom) {
     const cx = GAME_WIDTH / 2;
     const announceY = GAME_HEIGHT - 265;
+    const feetY = announceY - 12;
     ensureCrownTexture(this);
 
-    const body = this.add.image(0, 0, PLAYER_TEXTURE).setTint(winner.color).setScale(1.5).setOrigin(0.5, 1);
-    const crown = this.add.image(0, -body.displayHeight + 4, CROWN_KEY).setOrigin(0.5, 1);
-    const hero = this.add.container(cx, announceY - 12, [body, crown]).setScale(0);
+    const space = feetY - rowsBottom - HERO_BOUNCE - CROWN_HEIGHT - 6;
+    const heightAtScale1 = PLAYER.SIZE + hatHeightAboveHead(winner.hat);
+    const scale = Phaser.Math.Clamp(space / heightAtScale1, 0.9, 1.5);
+
+    const character = createCharacter(this, 0, 0, winner, scale);
+    const crown = this.add.image(0, -character.characterHeight + 4, CROWN_KEY).setOrigin(0.5, 1);
+    const hero = this.add.container(cx, feetY, [character, crown]).setScale(0);
     this.tweens.add({ targets: hero, scale: 1, duration: 400, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: hero, y: hero.y - 30, duration: 380, ease: 'Quad.easeOut', yoyo: true, repeat: -1, delay: 400 });
+    this.tweens.add({ targets: hero, y: hero.y - HERO_BOUNCE, duration: 380, ease: 'Quad.easeOut', yoyo: true, repeat: -1, delay: 400 });
     this.tweens.add({ targets: crown, angle: { from: -8, to: 8 }, duration: 380, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     const announcement = text(cx, announceY, hostingLine(winner.name), 34, COLORS.accent, {

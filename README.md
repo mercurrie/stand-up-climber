@@ -10,6 +10,9 @@ and the best climber wins the honour of hosting.
 2. Share the code, or press **Copy invite link** (`…/?room=K7F2`) and paste it
    in your team chat.
 3. Everyone else enters their name and the code, then presses **Join**.
+   In the lobby, pick a colour (each one can only belong to one person) and
+   a hat: party, pirate, propeller beanie or beer hat. Your look is
+   remembered for next time.
 4. The host (👑) presses **Start game**. After 3-2-1-GO, use ← → or A D to
    move. You bounce automatically. Dodge the falling balls, or you go back to
    the bottom.

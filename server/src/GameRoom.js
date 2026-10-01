@@ -1,5 +1,7 @@
 import { randomInt } from 'node:crypto';
-import { ErrorCode, PLAYER_COLORS, RoundState, Rules, ServerMsg } from '@stand-up-climber/shared';
+import {
+  DEFAULT_HAT, ErrorCode, HAT_IDS, PLAYER_COLORS, RoundState, Rules, ServerMsg,
+} from '@stand-up-climber/shared';
 
 /**
  * One room: a lobby of players and, while playing, the official round.
@@ -28,9 +30,11 @@ export class GameRoom {
     return this.players.size >= Rules.MAX_PLAYERS;
   }
 
-  addPlayer(player) {
+  /** `look` is the player's remembered preference; used where it's still available. */
+  addPlayer(player, look = {}) {
     player.name = this.uniqueName(player.name);
-    player.color = this.unusedColor();
+    player.color = this.isColorFree(look.color) ? look.color : this.unusedColor();
+    player.hat = HAT_IDS.includes(look.hat) ? look.hat : DEFAULT_HAT;
     this.players.set(player.id, player);
     this.hostId ??= player.id;
 
@@ -64,6 +68,24 @@ export class GameRoom {
 
     this.broadcast({ type: ServerMsg.NOTICE, text: notice });
     this.broadcastRoomState();
+  }
+
+  /**
+   * Change a player's colour and/or hat. Colours are unique per room so
+   * everyone stays easy to tell apart. Changes made mid-round apply from the
+   * next round (each round keeps the looks it started with).
+   * Returns an error code, or null on success.
+   */
+  setLook(id, { color, hat }) {
+    const player = this.players.get(id);
+    if (!player) return null;
+    if (color !== undefined && color !== player.color) {
+      if (!this.isColorFree(color)) return ErrorCode.COLOR_TAKEN;
+      player.color = color;
+    }
+    if (hat !== undefined && HAT_IDS.includes(hat)) player.hat = hat;
+    this.broadcastRoomState();
+    return null;
   }
 
   /** Returns an error code, or null on success. */
@@ -162,8 +184,11 @@ export class GameRoom {
     }
   }
 
+  isColorFree(color) {
+    return PLAYER_COLORS.includes(color) && ![...this.players.values()].some((p) => p.color === color);
+  }
+
   unusedColor() {
-    const used = new Set([...this.players.values()].map((p) => p.color));
-    return PLAYER_COLORS.find((c) => !used.has(c)) ?? PLAYER_COLORS[this.players.size % PLAYER_COLORS.length];
+    return PLAYER_COLORS.find((c) => this.isColorFree(c)) ?? PLAYER_COLORS[this.players.size % PLAYER_COLORS.length];
   }
 }

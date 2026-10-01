@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { Rules } from '@stand-up-climber/shared';
+import { DEFAULT_HAT, Rules } from '@stand-up-climber/shared';
 
 /**
  * A multiplayer round. Same interface as SoloRound (see there), but the
@@ -25,8 +25,8 @@ export class NetworkRound extends Phaser.Events.EventEmitter {
     // Names/colours for everyone in this round, captured at the start.
     // Snapshots only carry ids and positions; this fills in the rest.
     this.roster = new Map(playerIds.map((id) => {
-      const p = session.playerById(id) ?? { id, name: '???', color: 0xffffff };
-      return [id, { id, name: p.name, color: p.color }];
+      const p = session.playerById(id) ?? { id, name: '???', color: 0xffffff, hat: DEFAULT_HAT };
+      return [id, { id, name: p.name, color: p.color, hat: p.hat }];
     }));
     this.standings = [...this.roster.values()].map((p) => ({ ...p, current: 0, best: 0, finished: false }));
 

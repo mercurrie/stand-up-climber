@@ -4,6 +4,7 @@ import { SERVER_URL } from '../config/network.js';
 import { COLORS, FONT_FAMILY, GAME_WIDTH } from '../config/display.js';
 import { roomCodeFromUrl, setRoomCodeInUrl } from '../networking/inviteLink.js';
 import { addMuteButton } from '../ui/MuteButton.js';
+import { loadLook } from '../config/look.js';
 
 const NAME_STORAGE_KEY = 'stand-up-climber:name';
 // Re-enable the buttons if the server never answers.
@@ -95,7 +96,7 @@ export class MenuScene extends Phaser.Scene {
   createRoom() {
     const name = this.readName();
     if (!name) return;
-    this.request(() => this.session.createRoom(name));
+    this.request(() => this.session.createRoom(name, loadLook()));
   }
 
   joinRoom() {
@@ -106,7 +107,7 @@ export class MenuScene extends Phaser.Scene {
       this.showError(`Room codes are ${Rules.ROOM_CODE_LENGTH} characters`);
       return;
     }
-    this.request(() => this.session.joinRoom(code, name));
+    this.request(() => this.session.joinRoom(code, name, loadLook()));
   }
 
   /** Send a request, with the buttons disabled until the server answers. */

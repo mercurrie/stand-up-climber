@@ -1,10 +1,14 @@
-/** One connected person in a room. Holds their latest reported position. */
+import { DEFAULT_HAT } from '@stand-up-climber/shared';
+
+/** One connected person in a room. Holds their look and latest reported position. */
 export class Player {
-  constructor({ id, socket, name, color }) {
+  constructor({ id, socket, name }) {
     this.id = id;
     this.socket = socket;
     this.name = name;
-    this.color = color;
+    // Assigned by GameRoom when they join (colours must be unique per room).
+    this.color = null;
+    this.hat = DEFAULT_HAT;
     // Latest position from PLAYER_STATE, relayed to others in snapshots.
     this.x = 0;
     this.y = 0;
@@ -17,6 +21,6 @@ export class Player {
   }
 
   toJSON() {
-    return { id: this.id, name: this.name, color: this.color };
+    return { id: this.id, name: this.name, color: this.color, hat: this.hat };
   }
 }

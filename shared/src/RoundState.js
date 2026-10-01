@@ -1,4 +1,4 @@
-import { Rules } from './protocol.js';
+import { DEFAULT_HAT, Rules } from './protocol.js';
 
 /**
  * The rules of one round, as pure logic with no I/O and no timers. Callers
@@ -28,6 +28,7 @@ export class RoundState {
         id: p.id,
         name: p.name,
         color: p.color,
+        hat: p.hat ?? DEFAULT_HAT,
         joinOrder,
         current: 0,
         best: 0,
@@ -97,7 +98,7 @@ export class RoundState {
         b.best - a.best
         || (a.bestAt ?? Infinity) - (b.bestAt ?? Infinity)
         || a.joinOrder - b.joinOrder)
-      .map(({ id, name, color, current, best, finishedAt }) => ({ id, name, color, current, best, finished: finishedAt !== null }));
+      .map(({ id, name, color, hat, current, best, finishedAt }) => ({ id, name, color, hat, current, best, finished: finishedAt !== null }));
   }
 }
 

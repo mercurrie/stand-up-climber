@@ -9,11 +9,13 @@
 export const ClientMsg = Object.freeze({
   // Clock sync: { clientTime }. Server replies with PONG.
   PING: 'ping',
-  // { name }
+  // { name, look? }  look = { color, hat }: preferred look, used if available
   CREATE_ROOM: 'create_room',
-  // { code, name }
+  // { code, name, look? }
   JOIN_ROOM: 'join_room',
   LEAVE_ROOM: 'leave_room',
+  // Change colour and/or hat: { color?, hat? }. Colours are unique per room.
+  SET_LOOK: 'set_look',
   // Host only. Starts a round from the lobby or the results screen.
   START_ROUND: 'start_round',
   // During a round, ~10/s and whenever progress changes:
@@ -30,7 +32,7 @@ export const ServerMsg = Object.freeze({
   // { code, message }  (codes: see ErrorCode)
   ERROR: 'error',
   // Sent on any membership/phase change.
-  // { code, hostId, phase: 'lobby'|'playing'|'results', players: [{ id, name, color, inRound }] }
+  // { code, hostId, phase: 'lobby'|'playing'|'results', players: [{ id, name, color, hat, inRound }] }
   ROOM_STATE: 'room_state',
   // { startAt, seed, playerIds }
   ROUND_START: 'round_start',
@@ -39,7 +41,7 @@ export const ServerMsg = Object.freeze({
   SNAPSHOT: 'snapshot',
   // { playerId, name, endsAt }
   FIRST_FINISH: 'first_finish',
-  // { rankings: [{ id, name, color, current, best, finished }] }
+  // { rankings: [{ id, name, color, hat, current, best, finished }] }
   ROUND_END: 'round_end',
   // A short human-readable message, e.g. "Sam left". { text }
   NOTICE: 'notice',
@@ -51,6 +53,7 @@ export const ErrorCode = Object.freeze({
   ROOM_FULL: 'room_full',
   NOT_HOST: 'not_host',
   NOT_ENOUGH_PLAYERS: 'not_enough_players',
+  COLOR_TAKEN: 'color_taken',
 });
 
 /** Room and round rules. Values the server enforces live here. */
@@ -76,5 +79,17 @@ export const PLAYER_COLORS = Object.freeze([
   0xff6b9d, 0x4cc9f0, 0xffd166, 0x7ee081, 0xb388ff,
   0xff9f43, 0x00d2d3, 0xf368e0, 0xc8d6e5, 0xee5253,
 ]);
+
+// Hats players can pick in the lobby. The client draws them (see
+// client/src/entities/hats.js); the server only checks the id is valid.
+export const HATS = Object.freeze([
+  { id: 'none', label: 'No hat' },
+  { id: 'party', label: 'Party hat' },
+  { id: 'pirate', label: 'Pirate hat' },
+  { id: 'propeller', label: 'Propeller beanie' },
+  { id: 'beer', label: 'Beer hat' },
+]);
+export const HAT_IDS = Object.freeze(HATS.map((h) => h.id));
+export const DEFAULT_HAT = 'none';
 
 export const DEFAULT_SERVER_PORT = 8080;

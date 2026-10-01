@@ -12,7 +12,8 @@ import { Hud } from '../ui/Hud.js';
 import { ObstacleWarnings } from '../ui/ObstacleWarnings.js';
 import { ProgressTrack } from '../ui/ProgressTrack.js';
 import { CAMERA } from '../config/gameplay.js';
-import { COLORS, GAME_HEIGHT, PLAYER_COLORS } from '../config/display.js';
+import { COLORS, GAME_HEIGHT } from '../config/display.js';
+import { loadLook } from '../config/look.js';
 
 // Arcade only reports the frame *after* overlap, so allow a little slack when
 // deciding whether the player was above a platform last frame.
@@ -53,8 +54,9 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.isSolo = !this.round;
-    this.round ??= new SoloRound({ player: { id: 'local', name: 'You', color: PLAYER_COLORS[0] } });
-    const playerColor = this.round.localPlayer.color;
+    // Solo practice uses your last-picked look from the lobby.
+    this.round ??= new SoloRound({ player: { id: 'local', name: 'You', ...loadLook() } });
+    const { color, hat } = this.round.localPlayer;
 
     this.level = new Level(LEVEL_1);
     const { width, worldHeight } = this.level;
@@ -66,7 +68,7 @@ export class GameScene extends Phaser.Scene {
     this.obstacles = new ObstacleField(this, createObstacleSchedule(this.seed, this.level), this.effects);
 
     const start = this.level.startPosition;
-    this.player = new LocalPlayer(this, start.x, start.y, playerColor);
+    this.player = new LocalPlayer(this, start.x, start.y, { color, hat });
     this.progress = { current: 0, best: 0, finished: false };
     this.lastReportedProgress = null;
 

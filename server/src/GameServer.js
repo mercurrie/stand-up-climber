@@ -62,6 +62,11 @@ export class GameServer {
         if (error) sendError(socket, error, startRoundErrorMessage(error));
         break;
       }
+      case ClientMsg.SET_LOOK: {
+        const error = socket.room?.setLook(socket.id, msg);
+        if (error) sendError(socket, error, 'Someone else just took that colour');
+        break;
+      }
       case ClientMsg.PLAYER_STATE:
         socket.room?.handlePlayerState(socket.id, msg);
         break;
@@ -70,7 +75,7 @@ export class GameServer {
     }
   }
 
-  createRoom(socket, { name }) {
+  createRoom(socket, { name, look }) {
     const cleanName = sanitizeName(name);
     if (!cleanName) return sendError(socket, ErrorCode.BAD_REQUEST, 'Please enter a name');
 
@@ -78,24 +83,24 @@ export class GameServer {
     const room = new GameRoom(code, { onEmpty: (r) => this.deleteRoom(r) });
     this.rooms.set(code, room);
     console.log(`[server] room ${code} created (${this.rooms.size} active)`);
-    this.addToRoom(socket, room, cleanName);
+    this.addToRoom(socket, room, cleanName, look);
   }
 
-  joinRoom(socket, { code, name }) {
+  joinRoom(socket, { code, name, look }) {
     const cleanName = sanitizeName(name);
     if (!cleanName) return sendError(socket, ErrorCode.BAD_REQUEST, 'Please enter a name');
 
     const room = this.rooms.get(String(code ?? '').trim().toUpperCase());
     if (!room) return sendError(socket, ErrorCode.ROOM_NOT_FOUND, `No room with code "${code}"`);
     if (room.isFull) return sendError(socket, ErrorCode.ROOM_FULL, 'That room is full');
-    this.addToRoom(socket, room, cleanName);
+    this.addToRoom(socket, room, cleanName, look);
   }
 
-  addToRoom(socket, room, name) {
+  addToRoom(socket, room, name, look) {
     if (socket.room === room) return;
     this.leaveRoom(socket);
     socket.room = room;
-    room.addPlayer(new Player({ id: socket.id, socket, name }));
+    room.addPlayer(new Player({ id: socket.id, socket, name }), look && typeof look === 'object' ? look : {});
   }
 
   leaveRoom(socket) {

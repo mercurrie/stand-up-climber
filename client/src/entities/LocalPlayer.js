@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { HIT, PLAYER } from '../config/gameplay.js';
 import { PLAYER_TEXTURE as TEXTURE_KEY, ensurePlayerTexture } from './playerTexture.js';
+import { HatView } from './hats.js';
 
 const FRAME_MS = 1000 / 60;
 
@@ -15,7 +16,8 @@ const FRAME_MS = 1000 / 60;
  * Remote players (RemotePlayer) share the look but have no hitbox.
  */
 export class LocalPlayer {
-  constructor(scene, x, y, color) {
+  /** @param look  { color, hat } */
+  constructor(scene, x, y, { color, hat }) {
     this.scene = scene;
     ensurePlayerTexture(scene);
 
@@ -28,6 +30,7 @@ export class LocalPlayer {
 
     this.color = color;
     this.sprite = scene.add.image(x, y, TEXTURE_KEY).setOrigin(0.5, 1).setTint(color).setDepth(5);
+    this.hat = new HatView(scene, hat).setDepth(6);
     this.boundsRect = new Phaser.Geom.Rectangle();
     this.invulnerableUntil = 0;
     this.frozen = false;
@@ -148,11 +151,13 @@ export class LocalPlayer {
       this.sprite.setScale(1 - stretch / 2, 1 + stretch);
     }
     this.sprite.setPosition(this.body.center.x, this.body.bottom);
+    this.hat.follow(this.sprite);
   }
 
   destroy() {
     this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.syncSprite, this);
     this.hitbox.destroy();
     this.sprite.destroy();
+    this.hat.destroy();
   }
 }

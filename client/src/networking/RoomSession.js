@@ -58,14 +58,19 @@ export class RoomSession extends Phaser.Events.EventEmitter {
     return this.room?.players.find((p) => p.id === id) ?? null;
   }
 
-  createRoom(name) {
-    this.joining = this.net.send(ClientMsg.CREATE_ROOM, { name });
+  /** `look` ({ color, hat }) is a preference; the server picks another colour if it's taken. */
+  createRoom(name, look) {
+    this.joining = this.net.send(ClientMsg.CREATE_ROOM, { name, look });
     return this.joining;
   }
 
-  joinRoom(code, name) {
-    this.joining = this.net.send(ClientMsg.JOIN_ROOM, { code, name });
+  joinRoom(code, name, look) {
+    this.joining = this.net.send(ClientMsg.JOIN_ROOM, { code, name, look });
     return this.joining;
+  }
+
+  setLook(look) {
+    return this.net.send(ClientMsg.SET_LOOK, look);
   }
 
   leaveRoom() {

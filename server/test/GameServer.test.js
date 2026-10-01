@@ -141,6 +141,42 @@ test('leaving mid-round removes the player from the round', async (t) => {
   assert.deepEqual(snap.players.map((p) => p.id), [host.id]);
 });
 
+test('looks: preferred colour/hat on join, unique colours, hat in results', async (t) => {
+  const [red, blue] = [0xff6b9d, 0x4cc9f0];
+  const host = await connect();
+  const guest = await connect();
+  t.after(() => { host.close(); guest.close(); });
+
+  host.send(ClientMsg.CREATE_ROOM, { name: 'Host', look: { color: blue, hat: 'pirate' } });
+  const created = await host.next(ServerMsg.ROOM_STATE);
+  assert.deepEqual(created.players.map((p) => [p.color, p.hat]), [[blue, 'pirate']]);
+
+  // Guest prefers the same colour: they get a different one; bogus hat → none.
+  const joined = host.next(ServerMsg.ROOM_STATE, (m) => m.players.length === 2);
+  guest.send(ClientMsg.JOIN_ROOM, { code: created.code, name: 'Guest', look: { color: blue, hat: 'sombrero' } });
+  const lobby = await joined;
+  const guestInfo = lobby.players.find((p) => p.id === guest.id);
+  assert.notEqual(guestInfo.color, blue);
+  assert.equal(guestInfo.hat, 'none');
+
+  // Taking someone else's colour is refused; a free colour and a real hat work.
+  guest.send(ClientMsg.SET_LOOK, { color: blue });
+  assert.equal((await guest.next(ServerMsg.ERROR)).code, ErrorCode.COLOR_TAKEN);
+  const changed = host.next(ServerMsg.ROOM_STATE, (m) => m.players.some((p) => p.id === guest.id && p.hat === 'propeller'));
+  guest.send(ClientMsg.SET_LOOK, { color: red, hat: 'propeller' });
+  const after = (await changed).players.find((p) => p.id === guest.id);
+  assert.deepEqual([after.color, after.hat], [red, 'propeller']);
+
+  // Hats come through in the final rankings.
+  host.send(ClientMsg.START_ROUND);
+  const start = await host.next(ServerMsg.ROUND_START);
+  await new Promise((r) => setTimeout(r, start.startAt - Date.now() + 50));
+  const end = host.next(ServerMsg.ROUND_END);
+  host.send(ClientMsg.PLAYER_STATE, { finished: true });
+  guest.send(ClientMsg.PLAYER_STATE, { finished: true });
+  assert.deepEqual((await end).rankings.map((r) => r.hat), ['pirate', 'propeller']);
+});
+
 test('joining an unknown room fails clearly', async (t) => {
   const client = await connect();
   t.after(() => client.close());
