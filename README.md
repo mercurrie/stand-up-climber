@@ -128,51 +128,60 @@ disconnecting.
 
 ## Configuration
 
-| Variable          | Where  | Default                     | Purpose                              |
-| ----------------- | ------ | --------------------------- | ------------------------------------ |
-| `PORT`            | server | `8080`                      | HTTP + WebSocket port                |
-| `VITE_SERVER_URL` | client | `ws://<page-host>:8080`     | Server URL, baked in at build time   |
+| Variable          | Where  | Default | Purpose |
+| ----------------- | ------ | ------- | ------- |
+| `PORT`            | server | `8080`  | The one port for the page, WebSocket and `/health` |
+| `CLIENT_DIST`     | server | `client/dist` | Built game to serve. It's served if the folder exists |
+| `VITE_SERVER_URL` | client (build time) | See below | Where the multiplayer server is |
 
-Gameplay tuning (speeds, gravity, round timing, level layout) lives in
-`client/src/config/` and `shared/src/protocol.js`.
+If `VITE_SERVER_URL` isn't set, the client finds the server like this:
 
-## Production build
+- **Dev** (`npm run dev`): `ws://<page-host>:8080`
+- **Production build:** the same address as the page, since the Node server
+  serves the game itself
+
+Gameplay tuning (speeds, gravity, obstacle rates, level layout) lives in
+`client/src/config/` and `client/src/level/`. Round timing lives in
+`shared/src/protocol.js`.
+
+## Production build (run it like the real thing)
 
 ```bash
-VITE_SERVER_URL=wss://your-server.example.com npm run build
+npm run build   # builds the game into client/dist
+npm start       # serves the game + multiplayer on http://localhost:8080
 ```
 
-The static site is written to `client/dist/`. Asset paths are relative, so it
-works from a sub-path such as GitHub Pages.
+This is exactly what the hosted version runs.
 
-## Deployment
+## Deployment: Render (recommended, free)
 
-The client and server deploy separately.
+One free Render web service hosts everything at one URL, such as
+`https://stand-up-climber.onrender.com`. The repo includes a `render.yaml`
+Blueprint, so setup is mostly clicking through.
 
-### Client: GitHub Pages (or any static host)
+1. Push this repo to GitHub.
+2. Sign in at [render.com](https://render.com) with GitHub. No card is
+   needed for the free plan.
+3. Click **New → Blueprint**, pick this repository, and click **Apply**.
+   Render reads `render.yaml`. It runs `npm ci && npm run build`, then
+   `npm start`, and health-checks `/health`.
+4. When the deploy finishes, open the service URL. That's the game. Share
+   room links from the lobby as usual.
 
-1. Build with `VITE_SERVER_URL` pointing at your deployed server (it must use
-   `wss://`, because GitHub Pages serves over HTTPS).
-2. Publish `client/dist/`. With GitHub Actions: build, then use
-   `actions/upload-pages-artifact` with `path: client/dist`, followed by
-   `actions/deploy-pages`.
+Every push to `main` redeploys automatically.
 
-Netlify, Cloudflare Pages and Vercel also work. Use build command `npm run build`
-and publish directory `client/dist`.
+**Free-tier sleep:** Render's free services go to sleep after about 15
+minutes with no traffic. The first visit afterwards takes about 30–60 s while
+it wakes up. The menu shows "Connecting…" until then. Open the game a minute
+before stand-up. Rooms only live in memory, so a restart or redeploy clears
+them. That's fine for a weekly game.
 
-### Server: any Node host that supports WebSockets
+### Alternatives
 
-The server uses one port and reads `PORT` from the environment. Start it from
-the repo root, so the `shared` workspace gets installed:
-
-- **Install:** `npm install --workspace server --include-workspace-root`
-- **Start:** `npm start`
-- **Health check path:** `/health`
-
-Free or cheap options:
-
-- **Render** (free web service). Note: it sleeps after inactivity, so the first
-  connection takes about 30–60 s. Open the game a minute before stand-up.
-- **Fly.io** (small free allowance).
-- **Railway** (trial credits, then usage-based).
-- Any small VPS running `npm start` behind a TLS proxy (for example Caddy).
+- **Other Node hosts** (Fly.io, Railway, a small VPS): use the same two
+  commands, `npm ci && npm run build` then `npm start`. Make sure the host
+  supports WebSockets and sets `PORT`, or leave it at 8080.
+- **Game page on GitHub Pages, server elsewhere:** build with
+  `VITE_SERVER_URL=wss://your-server.example.com npm run build` and publish
+  `client/dist/`. Asset paths are relative, so sub-paths work. The server must
+  use `wss://` (HTTPS), because GitHub Pages is HTTPS.
