@@ -58,7 +58,7 @@ export class RoomSession extends Phaser.Events.EventEmitter {
     return this.room?.players.find((p) => p.id === id) ?? null;
   }
 
-  /** `look` ({ color, hat }) is a preference; the server picks another colour if it's taken. */
+  /** `look` ({ color, hat }) is your saved look, which the server applies when you join. */
   createRoom(name, look) {
     this.joining = this.net.send(ClientMsg.CREATE_ROOM, { name, look });
     return this.joining;

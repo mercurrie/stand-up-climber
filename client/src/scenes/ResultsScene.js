@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { Rules } from '@stand-up-climber/shared';
 import { COLORS, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT, PLAYER_COLORS } from '../config/display.js';
-import { MEDALS, formatPercent, hostingLine } from '../ui/format.js';
+import { MEDALS, formatPercent, hostingLine, truncate } from '../ui/format.js';
 import { Button } from '../ui/Button.js';
 import { PLAYER } from '../config/gameplay.js';
 import { createCharacter } from '../entities/characterView.js';
@@ -10,6 +10,10 @@ import { hatHeightAboveHead } from '../entities/hats.js';
 const ROW_HEIGHT = 34;
 const REVEAL_START_MS = 400;
 const REVEAL_STEP_MS = 280;
+// Cap on the whole rows-reveal, so a big room doesn't wait ages for the winner.
+const REVEAL_TOTAL_MAX_MS = 2600;
+// More players than this switches the list to two columns.
+const ONE_COLUMN_MAX = 8;
 const CONFETTI_KEY = 'confetti';
 const CROWN_KEY = 'crown';
 const CROWN_HEIGHT = 22;
@@ -42,28 +46,43 @@ export class ResultsScene extends Phaser.Scene {
 
     text(cx, 50, '🏆 FINAL RESULTS', 32, COLORS.accent).setOrigin(0.5);
 
-    // Rankings, revealed from last place up for a bit of suspense.
+    // Rankings, revealed from last place up for a bit of suspense. Big rooms
+    // use two columns (1st–7th left, the rest right) so the winner still fits.
     const top = 100;
+    const twoColumns = rankings.length > ONE_COLUMN_MAX;
+    const perColumn = twoColumns ? Math.ceil(rankings.length / 2) : rankings.length;
     const rows = rankings.map((player, i) => {
-      const y = top + i * ROW_HEIGHT;
+      const y = top + (i % perColumn) * ROW_HEIGHT;
       const color = player.id === localId ? COLORS.accent : COLORS.text;
+      const rank = MEDALS[i] ?? `${i + 1}`;
+      if (!twoColumns) {
+        return this.add.container(0, 0, [
+          text(70, y, rank, 22).setOrigin(0.5, 0),
+          createCharacter(this, 108, y + 27, player, 0.6),
+          text(126, y, player.name, 22, color),
+          text(GAME_WIDTH - 60, y, formatPercent(player.best), 22, color).setOrigin(1, 0),
+        ]).setAlpha(0);
+      }
+      const x = i < perColumn ? 14 : GAME_WIDTH / 2 + 6;
       return this.add.container(0, 0, [
-        text(70, y, MEDALS[i] ?? `${i + 1}`, 22).setOrigin(0.5, 0),
-        createCharacter(this, 108, y + 27, player, 0.6),
-        text(126, y, player.name, 22, color),
-        text(GAME_WIDTH - 60, y, formatPercent(player.best), 22, color).setOrigin(1, 0),
+        text(x + 16, y + 3, rank, 17).setOrigin(0.5, 0),
+        createCharacter(this, x + 44, y + 26, player, 0.55),
+        text(x + 60, y + 3, truncate(player.name, 9), 17, color),
+        text(x + 220, y + 3, formatPercent(player.best), 17, color).setOrigin(1, 0),
       ]).setAlpha(0);
     });
+
+    const revealStep = Math.min(REVEAL_STEP_MS, REVEAL_TOTAL_MAX_MS / rows.length);
     [...rows].reverse().forEach((row, step) => {
-      this.time.delayedCall(REVEAL_START_MS + step * REVEAL_STEP_MS, () => {
+      this.time.delayedCall(REVEAL_START_MS + step * revealStep, () => {
         row.x = -30;
         this.tweens.add({ targets: row, alpha: 1, x: 0, duration: 250, ease: 'Back.easeOut' });
         this.sfx.reveal(step);
       });
     });
 
-    const winnerRevealAt = REVEAL_START_MS + rows.length * REVEAL_STEP_MS + 200;
-    const rowsBottom = top + rows.length * ROW_HEIGHT;
+    const winnerRevealAt = REVEAL_START_MS + rows.length * revealStep + 200;
+    const rowsBottom = top + perColumn * ROW_HEIGHT;
     if (winner) this.time.delayedCall(winnerRevealAt, () => this.revealWinner(winner, text, rowsBottom));
 
     if (solo) this.createSoloButtons(cx);

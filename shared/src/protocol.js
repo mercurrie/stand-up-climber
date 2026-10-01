@@ -14,7 +14,7 @@ export const ClientMsg = Object.freeze({
   // { code, name, look? }
   JOIN_ROOM: 'join_room',
   LEAVE_ROOM: 'leave_room',
-  // Change colour and/or hat: { color?, hat? }. Colours are unique per room.
+  // Change colour and/or hat: { color?, hat? }. Duplicates are fine.
   SET_LOOK: 'set_look',
   // Host only. Starts a round from the lobby or the results screen.
   START_ROUND: 'start_round',
@@ -53,13 +53,12 @@ export const ErrorCode = Object.freeze({
   ROOM_FULL: 'room_full',
   NOT_HOST: 'not_host',
   NOT_ENOUGH_PLAYERS: 'not_enough_players',
-  COLOR_TAKEN: 'color_taken',
 });
 
 /** Room and round rules. Values the server enforces live here. */
 export const Rules = Object.freeze({
   MIN_PLAYERS: 2,
-  MAX_PLAYERS: 10,
+  MAX_PLAYERS: 14,
   MAX_NAME_LENGTH: 12,
   ROOM_CODE_LENGTH: 4,
   COUNTDOWN_MS: 3000,
@@ -73,11 +72,11 @@ export const Rules = Object.freeze({
   CLIENT_STATE_INTERVAL_MS: 100,
 });
 
-// One per player slot (rooms hold up to 10). The server assigns them so
-// everyone sees the same colour for the same person.
+// Colours players can pick in the lobby. Several people may pick the same one;
+// newcomers without a saved colour get one nobody's using, if any are left.
 export const PLAYER_COLORS = Object.freeze([
-  0xff6b9d, 0x4cc9f0, 0xffd166, 0x7ee081, 0xb388ff,
-  0xff9f43, 0x00d2d3, 0xf368e0, 0xc8d6e5, 0xee5253,
+  0xff6b9d, 0x4cc9f0, 0xffd166, 0x7ee081, 0xb388ff, 0xff9f43, 0x00d2d3,
+  0xf368e0, 0xc8d6e5, 0xee5253, 0xc4e538, 0x5f7bff, 0xc8915a, 0xffc3a0,
 ]);
 
 // Hats players can pick in the lobby. The client draws them (see

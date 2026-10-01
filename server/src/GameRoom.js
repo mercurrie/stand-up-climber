@@ -30,10 +30,14 @@ export class GameRoom {
     return this.players.size >= Rules.MAX_PLAYERS;
   }
 
-  /** `look` is the player's remembered preference; used where it's still available. */
+  /**
+   * `look` is the player's remembered colour/hat. Looks don't have to be
+   * unique (pick whatever you like); people without a saved look just get a
+   * colour nobody's using yet, so a fresh room starts out varied.
+   */
   addPlayer(player, look = {}) {
     player.name = this.uniqueName(player.name);
-    player.color = this.isColorFree(look.color) ? look.color : this.unusedColor();
+    player.color = PLAYER_COLORS.includes(look.color) ? look.color : this.unusedColor();
     player.hat = HAT_IDS.includes(look.hat) ? look.hat : DEFAULT_HAT;
     this.players.set(player.id, player);
     this.hostId ??= player.id;
@@ -71,21 +75,17 @@ export class GameRoom {
   }
 
   /**
-   * Change a player's colour and/or hat. Colours are unique per room so
-   * everyone stays easy to tell apart. Changes made mid-round apply from the
-   * next round (each round keeps the looks it started with).
-   * Returns an error code, or null on success.
+   * Change a player's colour and/or hat. Anyone can pick any colour/hat,
+   * even if someone else has the same; names tell people apart. Unknown
+   * values are ignored. Changes made mid-round apply from the next round
+   * (each round keeps the looks it started with).
    */
   setLook(id, { color, hat }) {
     const player = this.players.get(id);
-    if (!player) return null;
-    if (color !== undefined && color !== player.color) {
-      if (!this.isColorFree(color)) return ErrorCode.COLOR_TAKEN;
-      player.color = color;
-    }
-    if (hat !== undefined && HAT_IDS.includes(hat)) player.hat = hat;
+    if (!player) return;
+    if (PLAYER_COLORS.includes(color)) player.color = color;
+    if (HAT_IDS.includes(hat)) player.hat = hat;
     this.broadcastRoomState();
-    return null;
   }
 
   /** Returns an error code, or null on success. */
@@ -184,11 +184,9 @@ export class GameRoom {
     }
   }
 
-  isColorFree(color) {
-    return PLAYER_COLORS.includes(color) && ![...this.players.values()].some((p) => p.color === color);
-  }
-
+  /** First colour nobody in the room has (or cycle through if all are used). */
   unusedColor() {
-    return PLAYER_COLORS.find((c) => this.isColorFree(c)) ?? PLAYER_COLORS[this.players.size % PLAYER_COLORS.length];
+    const used = new Set([...this.players.values()].map((p) => p.color));
+    return PLAYER_COLORS.find((c) => !used.has(c)) ?? PLAYER_COLORS[this.players.size % PLAYER_COLORS.length];
   }
 }

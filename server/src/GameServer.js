@@ -62,11 +62,9 @@ export class GameServer {
         if (error) sendError(socket, error, startRoundErrorMessage(error));
         break;
       }
-      case ClientMsg.SET_LOOK: {
-        const error = socket.room?.setLook(socket.id, msg);
-        if (error) sendError(socket, error, 'Someone else just took that colour');
+      case ClientMsg.SET_LOOK:
+        socket.room?.setLook(socket.id, msg);
         break;
-      }
       case ClientMsg.PLAYER_STATE:
         socket.room?.handlePlayerState(socket.id, msg);
         break;

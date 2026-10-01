@@ -13,6 +13,11 @@ export function formatClock(ms) {
 
 export const MEDALS = ['🥇', '🥈', '🥉'];
 
+/** "Bartholomew" → "Barthol…" when space is tight. */
+export function truncate(text, max) {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
 /** "SAM IS HOSTING" / "YOU ARE HOSTING" (solo practice uses the name "You"). */
 export function hostingLine(name) {
   const verb = name.toLowerCase() === 'you' ? 'ARE' : 'IS';

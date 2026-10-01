@@ -141,31 +141,42 @@ test('leaving mid-round removes the player from the round', async (t) => {
   assert.deepEqual(snap.players.map((p) => p.id), [host.id]);
 });
 
-test('looks: preferred colour/hat on join, unique colours, hat in results', async (t) => {
-  const [red, blue] = [0xff6b9d, 0x4cc9f0];
+test('looks: saved look on join, duplicates allowed, hat in results', async (t) => {
+  const [pink, blue] = [0xff6b9d, 0x4cc9f0];
   const host = await connect();
   const guest = await connect();
-  t.after(() => { host.close(); guest.close(); });
+  const newbie = await connect();
+  t.after(() => { host.close(); guest.close(); newbie.close(); });
 
   host.send(ClientMsg.CREATE_ROOM, { name: 'Host', look: { color: blue, hat: 'pirate' } });
   const created = await host.next(ServerMsg.ROOM_STATE);
   assert.deepEqual(created.players.map((p) => [p.color, p.hat]), [[blue, 'pirate']]);
 
-  // Guest prefers the same colour: they get a different one; bogus hat → none.
+  // Guest's saved look matches the host exactly: that's fine, they get it.
+  // An unknown hat is ignored.
   const joined = host.next(ServerMsg.ROOM_STATE, (m) => m.players.length === 2);
   guest.send(ClientMsg.JOIN_ROOM, { code: created.code, name: 'Guest', look: { color: blue, hat: 'sombrero' } });
-  const lobby = await joined;
-  const guestInfo = lobby.players.find((p) => p.id === guest.id);
-  assert.notEqual(guestInfo.color, blue);
-  assert.equal(guestInfo.hat, 'none');
+  const guestInfo = (await joined).players.find((p) => p.id === guest.id);
+  assert.deepEqual([guestInfo.color, guestInfo.hat], [blue, 'none']);
 
-  // Taking someone else's colour is refused; a free colour and a real hat work.
-  guest.send(ClientMsg.SET_LOOK, { color: blue });
-  assert.equal((await guest.next(ServerMsg.ERROR)).code, ErrorCode.COLOR_TAKEN);
-  const changed = host.next(ServerMsg.ROOM_STATE, (m) => m.players.some((p) => p.id === guest.id && p.hat === 'propeller'));
-  guest.send(ClientMsg.SET_LOOK, { color: red, hat: 'propeller' });
+  // Someone with no saved look gets a colour nobody's using yet.
+  const third = host.next(ServerMsg.ROOM_STATE, (m) => m.players.length === 3);
+  newbie.send(ClientMsg.JOIN_ROOM, { code: created.code, name: 'Newbie' });
+  const newbieInfo = (await third).players.find((p) => p.id === newbie.id);
+  assert.notEqual(newbieInfo.color, blue);
+
+  // Changing to a colour + hat someone else already has also works.
+  const changed = host.next(ServerMsg.ROOM_STATE, (m) => m.players.some((p) => p.id === guest.id && p.hat === 'pirate'));
+  guest.send(ClientMsg.SET_LOOK, { color: blue, hat: 'pirate' });
   const after = (await changed).players.find((p) => p.id === guest.id);
-  assert.deepEqual([after.color, after.hat], [red, 'propeller']);
+  assert.deepEqual([after.color, after.hat], [blue, 'pirate']);
+  newbie.close();
+  await host.next(ServerMsg.ROOM_STATE, (m) => m.players.length === 2);
+
+  const changedAgain = host.next(ServerMsg.ROOM_STATE, (m) => m.players.some((p) => p.id === guest.id && p.hat === 'propeller'));
+  guest.send(ClientMsg.SET_LOOK, { color: pink, hat: 'propeller' });
+  const final = (await changedAgain).players.find((p) => p.id === guest.id);
+  assert.deepEqual([final.color, final.hat], [pink, 'propeller']);
 
   // Hats come through in the final rankings.
   host.send(ClientMsg.START_ROUND);
@@ -175,6 +186,23 @@ test('looks: preferred colour/hat on join, unique colours, hat in results', asyn
   host.send(ClientMsg.PLAYER_STATE, { finished: true });
   guest.send(ClientMsg.PLAYER_STATE, { finished: true });
   assert.deepEqual((await end).rankings.map((r) => r.hat), ['pirate', 'propeller']);
+});
+
+test('a full room holds MAX_PLAYERS (default colours all differ), then refuses', async (t) => {
+  const clients = await Promise.all(Array.from({ length: Rules.MAX_PLAYERS + 1 }, () => connect()));
+  t.after(() => clients.forEach((c) => c.close()));
+  const [host, ...rest] = clients;
+  const extra = rest.pop();
+
+  host.send(ClientMsg.CREATE_ROOM, { name: 'P1' });
+  const { code } = await host.next(ServerMsg.ROOM_STATE);
+  const full = host.next(ServerMsg.ROOM_STATE, (m) => m.players.length === Rules.MAX_PLAYERS);
+  rest.forEach((c, i) => c.send(ClientMsg.JOIN_ROOM, { code, name: `P${i + 2}` }));
+  const room = await full;
+  assert.equal(new Set(room.players.map((p) => p.color)).size, Rules.MAX_PLAYERS, 'default colours differ');
+
+  extra.send(ClientMsg.JOIN_ROOM, { code, name: 'Late' });
+  assert.equal((await extra.next(ServerMsg.ERROR)).code, ErrorCode.ROOM_FULL);
 });
 
 test('joining an unknown room fails clearly', async (t) => {

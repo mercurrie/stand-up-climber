@@ -4,9 +4,11 @@ const STORAGE_KEY = 'stand-up-climber:look';
 
 /**
  * Your last-picked colour and hat, remembered in this browser so you look the
- * same next week. Sent as a preference when creating/joining a room (the
- * server may give you a different colour if yours is taken) and used for solo
+ * same next week. Sent when creating/joining a room and used for solo
  * practice. Storage failures are ignored: it's only a convenience.
+ *
+ * `color` is null until you've picked one, so first-timers let the server
+ * hand them a colour nobody's using (rather than everyone defaulting to pink).
  */
 export function loadLook() {
   let saved = {};
@@ -16,7 +18,7 @@ export function loadLook() {
     // ignore
   }
   return {
-    color: PLAYER_COLORS.includes(saved.color) ? saved.color : PLAYER_COLORS[0],
+    color: PLAYER_COLORS.includes(saved.color) ? saved.color : null,
     hat: HAT_IDS.includes(saved.hat) ? saved.hat : DEFAULT_HAT,
   };
 }
