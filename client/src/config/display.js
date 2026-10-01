@@ -12,4 +12,11 @@ export const COLORS = {
   accent: '#ffd166',
 };
 
+// One per player slot (rooms hold up to 10). Picked to be distinct from each
+// other and from the platform section colours.
+export const PLAYER_COLORS = [
+  0xff6b9d, 0x4cc9f0, 0xffd166, 0x7ee081, 0xb388ff,
+  0xff9f43, 0x00d2d3, 0xf368e0, 0xc8d6e5, 0xee5253,
+];
+
 export const FONT_FAMILY = '"Trebuchet MS", "Segoe UI", system-ui, sans-serif';

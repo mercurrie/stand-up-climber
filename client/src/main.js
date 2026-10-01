@@ -1,8 +1,13 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene.js';
+import { GameScene } from './scenes/GameScene.js';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from './config/display.js';
+import { GRAVITY } from './config/gameplay.js';
 
-new Phaser.Game({
+// Add ?debug to the URL to draw physics bodies.
+const debug = new URLSearchParams(window.location.search).has('debug');
+
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   width: GAME_WIDTH,
@@ -14,7 +19,10 @@ new Phaser.Game({
   },
   physics: {
     default: 'arcade',
-    arcade: { debug: false },
+    arcade: { gravity: { y: GRAVITY }, debug },
   },
-  scene: [BootScene],
+  scene: [BootScene, GameScene],
 });
+
+// Handy for poking at the game from the browser console during development.
+if (import.meta.env.DEV) window.game = game;

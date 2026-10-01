@@ -7,8 +7,8 @@ import { COLORS, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT } from '../config/display.
 const PING_INTERVAL_MS = 1000;
 
 /**
- * Phase 1: proves the client builds, renders with Phaser, and talks to the
- * server. Later this scene will hand off to the menu once connected.
+ * Title screen. Connects to the server and shows connection status/latency.
+ * Later this scene will hand off to the menu once connected.
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -45,6 +45,19 @@ export class BootScene extends Phaser.Scene {
       wordWrap: { width: GAME_WIDTH - 40 },
     }).setOrigin(0.5);
 
+    this.add.text(cx, GAME_HEIGHT * 0.84, 'Press any key or click to climb', {
+      fontFamily: FONT_FAMILY,
+      fontSize: '22px',
+      fontStyle: 'bold',
+      color: COLORS.text,
+    }).setOrigin(0.5);
+
+    // Phase 2: straight into a solo climb. Phase 5 replaces this with the
+    // create/join room menu.
+    const start = () => this.scene.start('Game');
+    this.input.keyboard.once('keydown', start);
+    this.input.once('pointerdown', start);
+
     this.connect();
   }
 
@@ -52,13 +65,17 @@ export class BootScene extends Phaser.Scene {
     const net = new NetworkClient(SERVER_URL);
     this.registry.set('net', net);
 
-    net.on('open', () => net.ping());
-    net.on(ServerMsg.PONG, () => {
-      this.setStatus(`Connected ✓  ping ${net.latencyMs} ms`, COLORS.good);
-    });
-    net.on('close', () => {
-      this.setStatus('Disconnected from server.\nIs it running? (npm run dev)', COLORS.bad);
-    });
+    // The connection outlives this scene, so unsubscribe our UI handlers when
+    // the scene shuts down.
+    const unsubscribers = [
+      net.on('open', () => net.ping()),
+      net.on(ServerMsg.PONG, () => {
+        this.setStatus(`Connected ✓  ping ${net.latencyMs} ms`, COLORS.good);
+      }),
+      net.on('close', () => {
+        this.setStatus('Disconnected from server.\nIs it running? (npm run dev)', COLORS.bad);
+      }),
+    ];
     net.connect();
 
     const timer = this.time.addEvent({
@@ -66,7 +83,10 @@ export class BootScene extends Phaser.Scene {
       loop: true,
       callback: () => net.ping(),
     });
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => timer.remove());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      timer.remove();
+      unsubscribers.forEach((off) => off());
+    });
   }
 
   setStatus(text, color) {
