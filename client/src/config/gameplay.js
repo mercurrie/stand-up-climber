@@ -34,3 +34,30 @@ export const CAMERA = {
 };
 
 export const PLATFORM_THICKNESS = 18;
+
+export const OBSTACLES = {
+  // The schedule starts this long *before* the round, so at t=0 the whole
+  // tower is already full of falling obstacles. Should be at least the time
+  // the slowest obstacle takes to fall the full tower (~2900 px / 230 px/s).
+  PREWARM_MS: 13_000,
+  // ...except near the start area: pre-warmed obstacles that would begin the
+  // round lower than this (px above ground) are skipped, so nobody gets
+  // bonked on the very first frame.
+  START_SAFE_HEIGHT: 400,
+  // Time between consecutive spawns, picked randomly in this range.
+  SPAWN_INTERVAL_MS: { min: 650, max: 1250 },
+  // Constant fall speed (px/s) and radius, per obstacle.
+  FALL_SPEED: { min: 230, max: 330 },
+  RADIUS: { min: 14, max: 20 },
+  // Keep spawns away from the walls.
+  EDGE_MARGIN: 24,
+  // Schedule is generated this far ahead (covers the longest possible round).
+  SCHEDULE_DURATION_MS: 100_000,
+};
+
+export const HIT = {
+  // Pause before respawning at the bottom, so the hit registers visually.
+  RESPAWN_DELAY_MS: 450,
+  // Can't be hit again for this long after respawning.
+  INVULNERABLE_MS: 1500,
+};

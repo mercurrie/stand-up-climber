@@ -4,9 +4,10 @@ A tiny multiplayer vertical platformer for deciding who hosts next week's stand-
 Everyone climbs at once, falling blocks knock you back to the bottom, and the
 best climber wins the honour of hosting.
 
-> **Status:** Phase 2 (single-player prototype). Press any key on the title
-> screen to climb solo. Use ← → or A D to move; you bounce automatically.
-> Press R to restart. Add `?debug` to the URL to see physics hitboxes.
+> **Status:** Phase 3 (single-player with obstacles). Press any key on the title
+> screen to climb solo. Use ← → or A D to move; you bounce automatically. Dodge
+> the falling balls, or you go back to the bottom. Press R to restart with a
+> new obstacle pattern. Add `?debug` to the URL to see physics hitboxes.
 
 ## Repository layout
 

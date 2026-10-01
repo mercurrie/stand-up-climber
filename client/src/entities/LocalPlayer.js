@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { PLAYER } from '../config/gameplay.js';
+import { HIT, PLAYER } from '../config/gameplay.js';
 
 const TEXTURE_KEY = 'player';
 const FRAME_MS = 1000 / 60;
@@ -27,7 +27,10 @@ export class LocalPlayer {
     this.hitbox.body.setMaxVelocityY(PLAYER.MAX_FALL_SPEED);
     this.hitbox.setCollideWorldBounds(true);
 
-    this.sprite = scene.add.image(x, y, TEXTURE_KEY).setOrigin(0.5, 1).setTint(color);
+    this.color = color;
+    this.sprite = scene.add.image(x, y, TEXTURE_KEY).setOrigin(0.5, 1).setTint(color).setDepth(5);
+    this.boundsRect = new Phaser.Geom.Rectangle();
+    this.invulnerableUntil = 0;
 
     const kb = scene.input.keyboard;
     this.keys = {
@@ -66,14 +69,24 @@ export class LocalPlayer {
     if (direction !== 0) this.sprite.setFlipX(direction < 0);
   }
 
+  /** True when an obstacle can hit us: not mid-respawn and not invulnerable. */
+  get canBeHit() {
+    return this.body.enable && this.scene.time.now >= this.invulnerableUntil;
+  }
+
+  /** Hitbox as a Phaser.Geom.Rectangle, for overlap tests. */
+  get bounds() {
+    return this.boundsRect.setTo(this.body.x, this.body.y, this.body.width, this.body.height);
+  }
+
   /** Called when landing on a platform: the automatic jump. */
   bounce() {
     this.body.setVelocityY(-PLAYER.JUMP_VELOCITY);
 
     // Quick squash on take-off, then spring back.
-    this.scene.tweens.killTweensOf(this.sprite);
+    this.squashTween?.stop();
     this.sprite.setScale(1.3, 0.7);
-    this.scene.tweens.add({
+    this.squashTween = this.scene.tweens.add({
       targets: this.sprite,
       scaleX: 1,
       scaleY: 1,
@@ -82,15 +95,41 @@ export class LocalPlayer {
     });
   }
 
-  /** Teleport feet to (x, y) and stop. Used for respawning (Phase 3). */
+  /**
+   * Knocked by an obstacle: vanish briefly, then reappear at (x, y) — the
+   * bottom of the course — blinking and temporarily invulnerable.
+   */
+  hit(x, y) {
+    this.body.enable = false;
+    this.sprite.setVisible(false);
+
+    this.scene.time.delayedCall(HIT.RESPAWN_DELAY_MS, () => {
+      this.resetTo(x, y);
+      this.body.enable = true;
+      this.sprite.setVisible(true);
+      this.invulnerableUntil = this.scene.time.now + HIT.INVULNERABLE_MS;
+
+      this.blinkTween?.stop();
+      this.blinkTween = this.scene.tweens.add({
+        targets: this.sprite,
+        alpha: { from: 0.25, to: 1 },
+        duration: 150,
+        yoyo: true,
+        repeat: Math.floor(HIT.INVULNERABLE_MS / 300) - 1,
+        onComplete: () => this.sprite.setAlpha(1),
+      });
+    });
+  }
+
+  /** Teleport feet to (x, y) and stop. */
   resetTo(x, y) {
-    this.hitbox.body.reset(x, y - PLAYER.HITBOX_HEIGHT / 2);
+    this.body.reset(x, y - PLAYER.HITBOX_HEIGHT / 2);
     this.syncSprite();
   }
 
   syncSprite() {
     // Stretch slightly while moving fast vertically. Skipped mid-squash.
-    if (!this.scene.tweens.isTweening(this.sprite)) {
+    if (!this.squashTween?.isPlaying()) {
       const stretch = Phaser.Math.Clamp(Math.abs(this.body.velocity.y) / PLAYER.JUMP_VELOCITY, 0, 1) * 0.12;
       this.sprite.setScale(1 - stretch / 2, 1 + stretch);
     }
