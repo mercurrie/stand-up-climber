@@ -15,8 +15,6 @@ const REVEAL_TOTAL_MAX_MS = 2600;
 // More players than this switches the list to two columns.
 const ONE_COLUMN_MAX = 8;
 const CONFETTI_KEY = 'confetti';
-const CROWN_KEY = 'crown';
-const CROWN_HEIGHT = 22;
 const HERO_BOUNCE = 30;
 const SMALL_BUTTON = { width: 140, height: 40, fontSize: 16, variant: 'secondary' };
 
@@ -89,25 +87,21 @@ export class ResultsScene extends Phaser.Scene {
     else this.createRoomButtons(cx);
   }
 
-  // The winner: their character (hat and all) wearing a crown on top, bouncing
-  // just above the announcement. Sized to fit between the list and the
-  // announcement, so a tall hat never overlaps a full room's rankings.
+  // The winner: their character (hat and all) bouncing just above the
+  // announcement. Sized to fit between the list and the announcement, so a
+  // tall hat never overlaps a full room's rankings.
   revealWinner(winner, text, rowsBottom) {
     const cx = GAME_WIDTH / 2;
     const announceY = GAME_HEIGHT - 265;
     const feetY = announceY - 12;
-    ensureCrownTexture(this);
 
-    const space = feetY - rowsBottom - HERO_BOUNCE - CROWN_HEIGHT - 6;
+    const space = feetY - rowsBottom - HERO_BOUNCE - 6;
     const heightAtScale1 = PLAYER.SIZE + hatHeightAboveHead(winner.hat);
     const scale = Phaser.Math.Clamp(space / heightAtScale1, 0.9, 1.5);
 
-    const character = createCharacter(this, 0, 0, winner, scale);
-    const crown = this.add.image(0, -character.characterHeight + 4, CROWN_KEY).setOrigin(0.5, 1);
-    const hero = this.add.container(cx, feetY, [character, crown]).setScale(0);
+    const hero = createCharacter(this, cx, feetY, winner, scale).setScale(0);
     this.tweens.add({ targets: hero, scale: 1, duration: 400, ease: 'Back.easeOut' });
     this.tweens.add({ targets: hero, y: hero.y - HERO_BOUNCE, duration: 380, ease: 'Quad.easeOut', yoyo: true, repeat: -1, delay: 400 });
-    this.tweens.add({ targets: crown, angle: { from: -8, to: 8 }, duration: 380, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     const announcement = text(cx, announceY, hostingLine(winner.name), 34, COLORS.accent, {
       align: 'center',
@@ -180,18 +174,4 @@ export class ResultsScene extends Phaser.Scene {
       quantity: 2,
     }).setDepth(-1);
   }
-}
-
-function ensureCrownTexture(scene) {
-  if (scene.textures.exists(CROWN_KEY)) return;
-  const g = scene.make.graphics({ add: false });
-  g.fillStyle(0xffd166, 1);
-  g.fillPoints([
-    { x: 0, y: 22 }, { x: 0, y: 6 }, { x: 8, y: 13 }, { x: 15, y: 0 },
-    { x: 22, y: 13 }, { x: 30, y: 6 }, { x: 30, y: 22 },
-  ], true);
-  g.fillStyle(0xff6b9d, 1);
-  g.fillCircle(15, 16, 3);
-  g.generateTexture(CROWN_KEY, 30, 22);
-  g.destroy();
 }

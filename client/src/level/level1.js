@@ -48,7 +48,9 @@ export const LEVEL_1 = {
     { section: 'final', x: 330, height: 1955, width: 95 },
     { section: 'final', x: 140, height: 2160, width: 90 },
 
-    // Goal: wide and friendly, landing here means you've made it
-    { section: 'goal', x: 240, height: 2365, width: 170, goal: true },
+    // Goal: small and tucked against the right wall, so the last jump is a
+    // long diagonal from the left-hand platform below. Still reachable: it
+    // needs ~160px of sideways travel and a full jump gives ~220px.
+    { section: 'goal', x: 405, height: 2365, width: 70, goal: true },
   ],
 };
